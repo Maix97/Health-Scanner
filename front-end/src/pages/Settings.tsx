@@ -46,6 +46,7 @@ export default function Settings() {
   const { data: feelingTags = [] } = useTags('FEELING')
   const { data: quickToggleTags = [] } = useTags('QUICK_TOGGLE')
   const { data: exerciseTags = [] } = useTags('EXERCISE')
+  const { data: foodTags = [] } = useTags('FOOD')
   const deleteTag = useDeleteTag()
 
   async function handleExport() {
@@ -145,6 +146,7 @@ export default function Settings() {
           />
           <TagGroup title="Exercise" tags={exerciseTags} onRequestDelete={setPendingDeleteTag} />
           <TagGroup title="Quick toggles" tags={quickToggleTags} onRequestDelete={setPendingDeleteTag} />
+          <TagGroup title="Food" tags={foodTags.filter((t) => !t.parentTagId)} onRequestDelete={setPendingDeleteTag} />
         </div>
       </section>
 
