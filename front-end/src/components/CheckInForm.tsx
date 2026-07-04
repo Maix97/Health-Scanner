@@ -13,7 +13,7 @@ import { useCheckInsForDate } from '../hooks/useCheckIns'
 import { periodLabel, todayDateString } from '../lib/time'
 import { checkInToFormValues } from '../lib/checkInForm'
 import DayMiniChart from './DayMiniChart'
-import type { CheckIn, Polarity, Tag, TagCategory, TimePeriod } from '../types'
+import type { CheckIn, Polarity, TagCategory, TimePeriod } from '../types'
 
 export interface CheckInFormValues {
   date: string
@@ -226,7 +226,7 @@ export default function CheckInForm({
 
   function handleDateChange(date: string) {
     const period = values.timePeriod
-    setValues((v) => ({ ...defaultCheckInFormValues(), date, timePeriod: period }))
+    setValues((_v) => ({ ...defaultCheckInFormValues(), date, timePeriod: period }))
     setRepresentedCheckInId(excludeCheckInId)
     if (period) setAutoLoadPeriod(period)
     onDateChange?.(date)

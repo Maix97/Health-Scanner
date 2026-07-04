@@ -61,7 +61,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-4">
             <h2 className="text-sm font-semibold text-slate-700">Trends</h2>
             <div className="flex gap-3">
-              {SERIES.map(({ key, label, color, dash }) => (
+              {SERIES.map(({ key, label, color }) => (
                 <label key={key} className="flex cursor-pointer items-center gap-1.5 select-none">
                   <input
                     type="checkbox"
