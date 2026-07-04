@@ -24,6 +24,7 @@ exportRouter.get('/export', async (_req, res) => {
       wentToBedLate: c.wentToBedLate,
       sleepHours: c.sleepHours,
       moodScore: c.moodScore,
+      energyScore: c.energyScore,
       journalText: c.journalText,
       journalProcessedAt: c.journalProcessedAt,
       tags: c.tags.map((t) => ({ tagId: t.tagId, source: t.source, intensity: t.intensity })),
@@ -60,6 +61,7 @@ const importBodySchema = z.object({
       wentToBedLate: z.boolean().nullable(),
       sleepHours: z.number().nullable(),
       moodScore: z.number().nullable().optional(),
+      energyScore: z.number().nullable().optional(),
       journalText: z.string().nullable(),
       journalProcessedAt: z.coerce.date().nullable(),
       tags: z.array(

@@ -77,11 +77,16 @@ export default function Settings() {
 
   async function confirmImport() {
     if (!pendingImport) return
-    const result = await importData(pendingImport)
-    setStatus(`Imported ${result.tagsImported} tags and ${result.checkInsImported} check-ins.`)
-    setPendingImport(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-    queryClient.invalidateQueries()
+    try {
+      const result = await importData(pendingImport)
+      setStatus(`Imported ${result.tagsImported} tags and ${result.checkInsImported} check-ins.`)
+      setPendingImport(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      queryClient.invalidateQueries()
+    } catch (err) {
+      setStatus(`Import failed: ${err instanceof Error ? err.message : String(err)}`)
+      setPendingImport(null)
+    }
   }
 
   async function confirmDeleteTag() {
