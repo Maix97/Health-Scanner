@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+
+# Environment variables (contain secrets)
+.env
+.env.local
+.env.*.local
+
+# SQLite database (local data, not source code)
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

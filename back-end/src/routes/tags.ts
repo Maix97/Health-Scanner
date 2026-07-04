@@ -1,0 +1,68 @@
+import { Router } from 'express'
+import { z } from 'zod'
+import { prisma } from '../db/client.js'
+
+export const tagsRouter = Router()
+
+const categorySchema = z.enum(['FEELING', 'QUICK_TOGGLE', 'EXERCISE', 'FOOD'])
+const polaritySchema = z.enum(['POSITIVE', 'NEGATIVE'])
+
+tagsRouter.get('/', async (req, res) => {
+  const category = req.query.category
+  const parsed = category ? categorySchema.safeParse(category) : undefined
+
+  if (category && !parsed?.success) {
+    res.status(400).json({ error: 'Invalid category' })
+    return
+  }
+
+  const tags = await prisma.tag.findMany({
+    where: parsed?.success ? { category: parsed.data } : undefined,
+    orderBy: { label: 'asc' },
+  })
+  res.json(tags)
+})
+
+const createTagSchema = z.object({
+  label: z.string().trim().min(1).max(50),
+  category: categorySchema,
+  polarity: polaritySchema.optional(),
+  parentTagId: z.string().optional(),
+})
+
+tagsRouter.post('/', async (req, res) => {
+  const parsed = createTagSchema.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() })
+    return
+  }
+
+  const label = parsed.data.label.toLowerCase()
+
+  const tag = await prisma.tag.upsert({
+    where: { label },
+    update: {},
+    create: {
+      label,
+      category: parsed.data.category,
+      polarity: parsed.data.polarity,
+      parentTagId: parsed.data.parentTagId,
+      isPreset: false,
+    },
+  })
+
+  res.status(201).json(tag)
+})
+
+tagsRouter.delete('/:id', async (req, res) => {
+  const existing = await prisma.tag.findUnique({ where: { id: req.params.id } })
+  if (!existing) {
+    res.status(404).json({ error: 'Tag not found' })
+    return
+  }
+
+  const removedFromCheckIns = await prisma.checkInTag.count({ where: { tagId: req.params.id } })
+  await prisma.tag.delete({ where: { id: req.params.id } })
+
+  res.json({ ok: true, removedFromCheckIns })
+})

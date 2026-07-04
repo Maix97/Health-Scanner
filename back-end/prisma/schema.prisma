@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum TagCategory {
+  FEELING
+  QUICK_TOGGLE
+  EXERCISE
+  FOOD
+}
+
+enum Polarity {
+  POSITIVE
+  NEGATIVE
+}
+
+enum TimePeriod {
+  MORNING
+  DAY
+  EVENING
+  WHOLE_DAY
+}
+
+enum Source {
+  MANUAL
+  EXTRACTED
+}
+
+enum EventType {
+  FOOD
+  DRINK
+  ACTIVITY
+  SYMPTOM
+  MOOD
+}
+
+enum InsightKind {
+  CORRELATION
+  AI_SUMMARY
+}
+
+model CheckIn {
+  id                 String    @id @default(cuid())
+  occurredAt         DateTime  @default(now())
+  timePeriod         TimePeriod?
+  sleepScore         Int?
+  wentToBedLate      Boolean?
+  sleepHours         Float?
+  moodScore          Int?
+  energyScore        Int?
+  journalText        String?
+  journalProcessedAt DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  tags   CheckInTag[]
+  events Event[]
+
+  @@index([occurredAt])
+}
+
+model Tag {
+  id          String      @id @default(cuid())
+  label       String      @unique
+  category    TagCategory
+  polarity    Polarity?
+  isPreset    Boolean     @default(false)
+  parentTagId String?
+  createdAt   DateTime    @default(now())
+
+  parent   Tag?  @relation("TagChildren", fields: [parentTagId], references: [id], onDelete: Cascade)
+  children Tag[] @relation("TagChildren")
+
+  checkIns CheckInTag[]
+}
+
+model CheckInTag {
+  id        String   @id @default(cuid())
+  checkInId String
+  tagId     String
+  source    Source
+  intensity Int?
+  createdAt DateTime @default(now())
+
+  checkIn CheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([checkInId, tagId])
+}
+
+model Event {
+  id         String    @id @default(cuid())
+  checkInId  String
+  type       EventType
+  label      String
+  value      String?
+  source     Source
+  confidence Float?
+  rawSpan    String?
+  createdAt  DateTime  @default(now())
+
+  checkIn CheckIn @relation(fields: [checkInId], references: [id], onDelete: Cascade)
+
+  @@index([checkInId])
+  @@index([type, label])
+}
+
+model Insight {
+  id                       String      @id @default(cuid())
+  generatedAt              DateTime    @default(now())
+  periodStart              DateTime
+  periodEnd                DateTime
+  kind                     InsightKind
+  inputHash                String
+  content                  String
+  dismissed                Boolean     @default(false)
+  checkInCountAtGeneration Int
+
+  @@index([kind, dismissed])
+}

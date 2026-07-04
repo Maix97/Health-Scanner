@@ -1,0 +1,80 @@
+option to add past entries
+can see past entries in more detail and edit entries
+can delete tags
+----------------
+for tags like alcohol after clickin on alcohol there are extra 
+options for amount 1-3 like 1 selection being a beer or 2, 
+2 being some more and 3 being a full night party worth
+and exercise can select light /medium / hard training and so on
+but the selection can be 1-3 for amount but the 1 would be single drink 3 would be hard drinking 
+
+also the selected day shows somewhere the already inserted 
+enrties to keep me from acidentally double entrying when i might forget
+if i already did it for this day
+
+------
+
+also want to track protein / sugar / carbs intake
+I want another tab of "Food":
+were i can track if i ate sugar carbs or protein , 
+junk (maybe can have junk selection if i click on it it shows extra options like pizza , burger, ) 
+,microwave food, store sandwich ,healthy etc
+-----
+
+if i send any days entry it will stay on that day not go to the newest day.
+
+i can edit a days entries from the "add entry" place where it shows previous entries
+-----
+
+sleep also can be 1-5 so its more accurate 
+( the previous entries you can put 3 for medium and 5 for good 1 for bad) 
+----
+
+for food i would like the tags to be 
+(light - then you press on it and there is another selection for example sandwich, salad etc (can add)) then Meal (selection of :pasta, rice, chicken, meat, salad, (kind of like putting together a meal )) , and junk we already have it like this, sweets : chocolate, ice cream, cookies etc..
+i also have a question about how does the algorithm track these if it even can? like if every time i eat ice cream and the next entry or next days are lower or i have heartburn or some pattern emerges does it catch it?
+
+
+if a day already has entry lets say in the morning and i press on the morning time of day selection can we have the page show that time of days entry. (kind of like edit does)
+----
+
+bring out the things that have the most effect on positive or negative
+--------
+
+things like heartburn have strong correlation with food, and tiredness with sleep and food type (sugar crashes and carbs), stress has more to do with work and travelling and so on
+so these kinds of things should be kept in mind
+
+----
+'You are a health-pattern analyst reviewing a personal health tracker. Your job is to surface what is SPECIFIC and ACTIONABLE for this person — not generic health advice.',
+      '',
+      'COMMON KNOWLEDGE TO IGNORE (do not state these as insights):',
+      '- Generic "food causes heartburn" — too vague to be useful. BUT: if the data shows a SPECIFIC item (e.g. junk food, pizza, sweets, coffee, alcohol) correlates with heartburn, that IS worth surfacing — the value is the specificity.',
+      '- Sugar and carbs cause energy crashes — expected.',
+      '- Poor sleep causes tiredness — expected.',
+      '- Travel and work cause stress — expected.',
+      '- Exercise can cause tiredness — expected.',
+      '- Night flights or late nights cause poor sleep — expected.',
+      '- Alcohol disrupts sleep — expected.',
+      '- Taking a nap during the day means the person was already tired — the nap is a symptom, not a cause.',
+      '- Taking medication implies the person was already unwell — do not treat medication as causing symptoms.',
+      '- Feeling tired after a long or physically demanding day — expected.',
+      '- Any situation where the "input" is clearly a response to already feeling bad, not the cause of it.',
+
+      these what we haevf in insights 
+      these should still be taken into account for example i want to know if alcohol disrupts sleep , and if exercise would have tiredness it can be still caught in the data but not stuff like having a night flight where you cant sleep because of the flight not because of habits is bad.
+      this project should track habits not that if there is an earthquake then yes i am stressed or whatver just a far example but maybe you understand
+
+
+      ----
+
+ insight tab has extra tabs to see sleep effects, and one for food effects, and other for action effects(exercise ,party etc) (in detail)
+
+ maybe some indicator into the dashboard graph for sleep extre setting to show late sleep, (also this in the detailed sleep graph)
+
+..
+
+main dashboard graph can be clicked to go to the day im hovering.
+
+dashboard default graph size is 7d
+
+----
