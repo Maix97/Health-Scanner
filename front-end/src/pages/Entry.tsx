@@ -69,7 +69,7 @@ export default function Entry() {
         <SleepCard date={entryDate} />
         <CheckInForm
           key={dateParam ?? 'add-entry'}
-          initialDate={dateParam}
+          initialDate={entryDate}
           onSubmit={handleSubmit}
           submitLabel="Save check-in"
           pendingLabel="Saving..."

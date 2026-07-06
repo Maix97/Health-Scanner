@@ -83,6 +83,24 @@ export default function FoodTagDropdown({
             </span>
           )}
         </button>
+        {isParentSelected && (
+          <div className="flex gap-0.5 px-1" onClick={(e) => e.stopPropagation()}>
+            {[1, 2, 3].map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => onIntensityChange(tag.id, tagIntensities[tag.id] === v ? undefined : v)}
+                className={`h-5 w-5 rounded text-[10px] font-semibold transition-colors ${
+                  tagIntensities[tag.id] === v
+                    ? 'bg-white text-slate-900'
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        )}
         <button
           type="button"
           onClick={handleArrowClick}
