@@ -35,7 +35,7 @@ function MoodFindingRow({ f, positive }: { f: MoodFinding; positive: boolean }) 
 
 function CorrelationRow({ f }: { f: CorrelationFinding }) {
   const liftPct = Math.round(Math.abs(f.lift) * 100)
-  const direction = f.beneficial ? '↑' : '↑'
+  const direction = f.beneficial ? '↑' : '↓'
   const color = f.beneficial ? 'text-emerald-500' : 'text-red-400'
   const rate = Math.round(f.rateWithInput * 100)
   return (

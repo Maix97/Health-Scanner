@@ -1,5 +1,11 @@
 import { apiRequest } from './client'
-import type { GenerateInsightsResult, Insight } from '../types'
+import type { CorrelationFinding, GenerateInsightsResult, Insight, MoodFinding } from '../types'
+
+export interface PatternsData {
+  correlations: CorrelationFinding[]
+  moodImpacts: MoodFinding[]
+  checkInCount: number
+}
 
 export function fetchInsights() {
   return apiRequest<Insight[]>('/insights')
@@ -17,4 +23,8 @@ export function setInsightDismissed(id: string, dismissed: boolean) {
     method: 'PATCH',
     body: JSON.stringify({ dismissed }),
   })
+}
+
+export function fetchPatterns() {
+  return apiRequest<PatternsData>('/insights/patterns')
 }

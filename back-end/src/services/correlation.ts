@@ -1,23 +1,29 @@
 import { nextDayKey, type CarryoverPeriod, type DayRecord, type PeriodRecord } from './dayAggregation.js'
+import { benjaminiHochberg, fisherExactPValue } from './stats.js'
 
 export const MIN_TOTAL_DAYS = 7
 export const MAX_FINDINGS = 8
 export const BAD_SLEEP_OUTCOME = 'poor sleep'
+// A co-occurring input is flagged as a potential confounder when it appears
+// on this fraction of the candidate input's days.
+const CO_OCCUR_THRESHOLD = 0.65
+const MIN_ISOLATED_DAYS = 3
+// BH-corrected p-value threshold (more lenient for small data)
+const P_THRESHOLD_SMALL = 0.15  // < 20 days
+const P_THRESHOLD_LARGE = 0.1   // >= 20 days
+// Inputs are marked tentative until this many exposure days
+const TENTATIVE_EXPOSURE = 8
 
-// Thresholds scale up as more data accumulates so early findings are shown
-// (labelled "tentative") and requirements tighten automatically over time.
 export function getThresholds(totalDays: number): { minSample: number; minLift: number; minMoodDiff: number } {
   if (totalDays >= 30) return { minSample: 5, minLift: 0.3, minMoodDiff: 1.5 }
   if (totalDays >= 20) return { minSample: 4, minLift: 0.25, minMoodDiff: 1.2 }
   return { minSample: 3, minLift: 0.2, minMoodDiff: 1.0 }
 }
 
-// Keep named exports for backwards compat with tests/other callers
 export const MIN_SAMPLE = 3
 export const MIN_LIFT = 0.2
 export const MIN_MOOD_DIFF = 1.0
-// On the 1-5 sleep scale, treat 1-2 as "poor" — same Likert-style bucketing
-// as 1-3/4-6/7-10 would suggest, just scaled down for a 5-point range.
+
 const POOR_SLEEP_THRESHOLD = 4
 
 export interface CorrelationFinding {
@@ -30,6 +36,25 @@ export interface CorrelationFinding {
   lift: number
   summary: string
   beneficial: boolean
+  pValue: number
+  correctedPValue: number
+  tentative: boolean
+  confounded?: {
+    coOccursWith: string
+    isolatedDays: number
+    isolatedRate: number | null
+  }
+  context?: string
+}
+
+export interface MoodFinding {
+  inputLabel: string
+  daysWithInput: number
+  daysWithoutInput: number
+  avgMoodWithInput: number
+  avgMoodWithoutInput: number
+  diff: number
+  summary: string
   context?: string
 }
 
@@ -58,77 +83,155 @@ function formatFinding(
   return `On ${withPct}% of days with ${inputLabel} (n=${daysWithInput}), ${outcomeLabel} was reported, vs ${withoutPct}% on days without (n=${daysWithoutInput}) — ${conf}.`
 }
 
-// Explainable co-occurrence detection: no ML, just rate comparisons with
-// minimum-sample-size and minimum-effect-size guards so it doesn't claim
-// patterns from a handful of data points.
+function average(values: number[]): number | null {
+  if (values.length === 0) return null
+  return values.reduce((sum, v) => sum + v, 0) / values.length
+}
+
+// Builds a map of inputLabel → set of day indices for co-occurrence lookups.
+function buildInputDayIndex(days: DayRecord[]): Map<string, Set<number>> {
+  const index = new Map<string, Set<number>>()
+  for (let i = 0; i < days.length; i++) {
+    for (const label of days[i].inputLabels) {
+      if (!index.has(label)) index.set(label, new Set())
+      index.get(label)!.add(i)
+    }
+  }
+  return index
+}
+
+// Checks whether any other input is a potential confounder for the given
+// (inputLabel, outcomeLabel) pair and returns the confound description if so.
+function checkConfound(
+  inputLabel: string,
+  outcomeLabel: string,
+  inputDayIndices: Map<string, Set<number>>,
+  inputIndices: Set<number>,
+  days: DayRecord[],
+): CorrelationFinding['confounded'] {
+  for (const [otherLabel, otherIndices] of inputDayIndices) {
+    if (otherLabel === inputLabel) continue
+
+    const overlap = [...inputIndices].filter((i) => otherIndices.has(i)).length
+    if (overlap / inputIndices.size < CO_OCCUR_THRESHOLD) continue
+
+    // Found a co-occurring input — compute the isolated signal.
+    const isolatedIndices = new Set([...inputIndices].filter((i) => !otherIndices.has(i)))
+    if (isolatedIndices.size < MIN_ISOLATED_DAYS) {
+      return { coOccursWith: otherLabel, isolatedDays: isolatedIndices.size, isolatedRate: null }
+    }
+
+    const isolatedDays = days.filter((_, j) => isolatedIndices.has(j))
+    const isolatedCount = isolatedDays.filter((d) => hasOutcome(d, outcomeLabel)).length
+    return {
+      coOccursWith: otherLabel,
+      isolatedDays: isolatedIndices.size,
+      isolatedRate: isolatedCount / isolatedDays.length,
+    }
+  }
+  return undefined
+}
+
+// Explainable co-occurrence detection: pairwise Fisher's exact test + BH
+// FDR correction, with co-occurrence confound detection.
 export function computeCorrelations(days: DayRecord[]): CorrelationFinding[] {
   if (days.length < MIN_TOTAL_DAYS) return []
 
-  const { minSample, minLift } = getThresholds(days.length)
+  const { minSample } = getThresholds(days.length)
+  const pThreshold = days.length >= 20 ? P_THRESHOLD_LARGE : P_THRESHOLD_SMALL
 
   const inputLabels = new Set<string>()
   const outcomeLabels = new Set<string>([BAD_SLEEP_OUTCOME])
   const positiveOutcomes = new Set<string>()
   for (const day of days) {
-    for (const label of day.inputLabels) inputLabels.add(label)
-    for (const label of day.outcomeLabels) outcomeLabels.add(label)
-    for (const label of day.positiveOutcomeLabels) positiveOutcomes.add(label)
+    for (const l of day.inputLabels) inputLabels.add(l)
+    for (const l of day.outcomeLabels) outcomeLabels.add(l)
+    for (const l of day.positiveOutcomeLabels) positiveOutcomes.add(l)
   }
 
-  const findings: CorrelationFinding[] = []
+  const inputDayIndices = buildInputDayIndex(days)
+
+  // --- Pass 1: collect all testable candidates with Fisher p-values ---
+  type Candidate = {
+    inputLabel: string; outcomeLabel: string
+    a: number; b: number; c: number; dn: number
+    rateWithInput: number; rateWithoutInput: number; lift: number
+    pValue: number; beneficial: boolean
+    inputIndices: Set<number>
+  }
+  const candidates: Candidate[] = []
 
   for (const inputLabel of inputLabels) {
-    const daysWith = days.filter((d) => d.inputLabels.has(inputLabel))
-    const daysWithout = days.filter((d) => !d.inputLabels.has(inputLabel))
-
+    const inputIndices = inputDayIndices.get(inputLabel)!
+    const daysWith = days.filter((_, i) => inputIndices.has(i))
+    const daysWithout = days.filter((_, i) => !inputIndices.has(i))
     if (daysWith.length < minSample || daysWithout.length < minSample) continue
 
     for (const outcomeLabel of outcomeLabels) {
-      const withCount = daysWith.filter((d) => hasOutcome(d, outcomeLabel)).length
-      const withoutCount = daysWithout.filter((d) => hasOutcome(d, outcomeLabel)).length
+      const a = daysWith.filter((d) => hasOutcome(d, outcomeLabel)).length
+      const b = daysWith.length - a
+      const c = daysWithout.filter((d) => hasOutcome(d, outcomeLabel)).length
+      const dn = daysWithout.length - c
 
-      const rateWithInput = withCount / daysWith.length
-      const rateWithoutInput = withoutCount / daysWithout.length
+      if (a === 0 && c === 0) continue
+
+      const rateWithInput = a / (a + b)
+      const rateWithoutInput = c / (c + dn)
       const lift = rateWithInput - rateWithoutInput
 
-      if (Math.abs(lift) < minLift) continue
+      // Two-tailed Fisher's: test both positive and negative associations.
+      const pUp = fisherExactPValue(a, b, c, dn)
+      const pDown = fisherExactPValue(c, dn, a, b)
+      const pValue = Math.min(1, 2 * Math.min(pUp, pDown))
 
       const isPositiveOutcome = positiveOutcomes.has(outcomeLabel)
       const beneficial = outcomeLabel === BAD_SLEEP_OUTCOME ? lift < 0 : isPositiveOutcome ? lift > 0 : lift < 0
 
-      findings.push({
-        inputLabel,
-        outcomeLabel,
-        daysWithInput: daysWith.length,
-        daysWithoutInput: daysWithout.length,
-        rateWithInput,
-        rateWithoutInput,
-        lift,
-        summary: formatFinding(inputLabel, outcomeLabel, rateWithInput, rateWithoutInput, daysWith.length, daysWithout.length),
-        beneficial,
-      })
+      candidates.push({ inputLabel, outcomeLabel, a, b, c, dn, rateWithInput, rateWithoutInput, lift, pValue, beneficial, inputIndices })
     }
   }
 
+  if (candidates.length === 0) return []
+
+  // --- Pass 2: BH FDR correction across all tested pairs ---
+  const correctedPs = benjaminiHochberg(candidates.map((c) => c.pValue))
+
+  // --- Pass 3: build findings from significant candidates + confound check ---
+  const findings: CorrelationFinding[] = []
+
+  for (let i = 0; i < candidates.length; i++) {
+    const correctedPValue = correctedPs[i]
+    if (correctedPValue > pThreshold) continue
+
+    const cand = candidates[i]
+    const confounded = checkConfound(cand.inputLabel, cand.outcomeLabel, inputDayIndices, cand.inputIndices, days)
+
+    findings.push({
+      inputLabel: cand.inputLabel,
+      outcomeLabel: cand.outcomeLabel,
+      daysWithInput: cand.a + cand.b,
+      daysWithoutInput: cand.c + cand.dn,
+      rateWithInput: cand.rateWithInput,
+      rateWithoutInput: cand.rateWithoutInput,
+      lift: cand.lift,
+      summary: formatFinding(cand.inputLabel, cand.outcomeLabel, cand.rateWithInput, cand.rateWithoutInput, cand.a + cand.b, cand.c + cand.dn),
+      beneficial: cand.beneficial,
+      pValue: cand.pValue,
+      correctedPValue,
+      tentative: (cand.a + cand.b) < TENTATIVE_EXPOSURE,
+      confounded,
+    })
+  }
+
+  // Confounded findings go last; within each tier sort by absolute lift.
   return findings
-    .sort((a, b) => Math.abs(b.lift) - Math.abs(a.lift) || b.daysWithInput - a.daysWithInput)
+    .sort((a, b) => {
+      const aC = a.confounded ? 1 : 0
+      const bC = b.confounded ? 1 : 0
+      if (aC !== bC) return aC - bC
+      return Math.abs(b.lift) - Math.abs(a.lift) || b.daysWithInput - a.daysWithInput
+    })
     .slice(0, MAX_FINDINGS)
-}
-
-export interface MoodFinding {
-  inputLabel: string
-  daysWithInput: number
-  daysWithoutInput: number
-  avgMoodWithInput: number
-  avgMoodWithoutInput: number
-  diff: number
-  summary: string
-  context?: string
-}
-
-function average(values: number[]): number | null {
-  if (values.length === 0) return null
-  return values.reduce((sum, v) => sum + v, 0) / values.length
 }
 
 // Same explainable approach as computeCorrelations, but compares average
@@ -176,11 +279,6 @@ export function computeMoodImpacts(days: DayRecord[]): MoodFinding[] {
   return findings.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, MAX_FINDINGS)
 }
 
-// Carryover detection across time-of-day periods: an earlier period's inputs
-// (and outcomes, since a symptom/mood can itself carry forward) compared
-// against a later period's outcomes. Evening -> next-morning is the one
-// cross-day relationship, covering things like "drank in the evening, felt
-// rough the next morning" — everything else stays within the same day.
 interface PeriodPairRule {
   earlierPeriod: CarryoverPeriod
   laterPeriod: CarryoverPeriod
@@ -194,10 +292,7 @@ const PERIOD_PAIR_RULES: PeriodPairRule[] = [
   { earlierPeriod: 'EVENING', laterPeriod: 'MORNING', crossesDay: true },
 ]
 
-interface PeriodPair {
-  earlier: PeriodRecord
-  later: PeriodRecord
-}
+interface PeriodPair { earlier: PeriodRecord; later: PeriodRecord }
 
 function periodWord(period: CarryoverPeriod): string {
   return period === 'DAY' ? 'midday' : period.toLowerCase()
@@ -208,11 +303,7 @@ function laterPeriodPhrase(period: CarryoverPeriod, crossesDay: boolean): string
   return crossesDay ? `the next ${word}` : `that ${word}`
 }
 
-function pairsForRule(
-  periods: PeriodRecord[],
-  byKey: Map<string, PeriodRecord>,
-  rule: PeriodPairRule,
-): PeriodPair[] {
+function pairsForRule(periods: PeriodRecord[], byKey: Map<string, PeriodRecord>, rule: PeriodPairRule): PeriodPair[] {
   const pairs: PeriodPair[] = []
   for (const record of periods) {
     if (record.period !== rule.earlierPeriod) continue
@@ -224,7 +315,7 @@ function pairsForRule(
 }
 
 function predictorPresent(pair: PeriodPair, label: string): boolean {
-  return pair.earlier.inputLabels.has(label) || pair.earlier.outcomeLabels.has(label)
+  return pair.earlier.inputLabels.has(label)
 }
 
 function hasPeriodOutcome(pair: PeriodPair, label: string): boolean {
@@ -234,18 +325,14 @@ function hasPeriodOutcome(pair: PeriodPair, label: string): boolean {
   return pair.later.outcomeLabels.has(label)
 }
 
-// Sleep quality is only a meaningful "later" outcome for the one cross-day
-// relationship — last night's sleep can't be caused by something later the
-// same day, since it already happened before that.
 function includesSleepOutcome(rule: PeriodPairRule): boolean {
   return rule.crossesDay && rule.laterPeriod === 'MORNING'
 }
 
-// Same explainable approach and guards as computeCorrelations/computeMoodImpacts,
-// just comparing an earlier period's predictors against a later period's outcomes.
 export function computePeriodCorrelations(periods: PeriodRecord[]): CorrelationFinding[] {
   const totalDays = new Set(periods.map((p) => p.date)).size
-  const { minSample, minLift } = getThresholds(totalDays)
+  const { minSample } = getThresholds(totalDays)
+  const pThreshold = totalDays >= 20 ? P_THRESHOLD_LARGE : P_THRESHOLD_SMALL
 
   const byKey = new Map<string, PeriodRecord>()
   for (const p of periods) byKey.set(`${p.date}|${p.period}`, p)
@@ -255,7 +342,14 @@ export function computePeriodCorrelations(periods: PeriodRecord[]): CorrelationF
     for (const l of p.positiveOutcomeLabels) positiveOutcomes.add(l)
   }
 
-  const findings: CorrelationFinding[] = []
+  type Candidate = {
+    rule: PeriodPairRule
+    inputLabel: string; outcomeLabel: string
+    a: number; b: number; c: number; dn: number
+    rateWithInput: number; rateWithoutInput: number; lift: number
+    pValue: number; beneficial: boolean
+  }
+  const candidates: Candidate[] = []
 
   for (const rule of PERIOD_PAIR_RULES) {
     const pairs = pairsForRule(periods, byKey, rule)
@@ -271,40 +365,62 @@ export function computePeriodCorrelations(periods: PeriodRecord[]): CorrelationF
     for (const predictorLabel of predictorLabels) {
       const pairsWith = pairs.filter((p) => predictorPresent(p, predictorLabel))
       const pairsWithout = pairs.filter((p) => !predictorPresent(p, predictorLabel))
-
       if (pairsWith.length < minSample || pairsWithout.length < minSample) continue
 
       for (const outcomeLabel of outcomeLabels) {
-        const withCount = pairsWith.filter((p) => hasPeriodOutcome(p, outcomeLabel)).length
-        const withoutCount = pairsWithout.filter((p) => hasPeriodOutcome(p, outcomeLabel)).length
+        const a = pairsWith.filter((p) => hasPeriodOutcome(p, outcomeLabel)).length
+        const b = pairsWith.length - a
+        const c = pairsWithout.filter((p) => hasPeriodOutcome(p, outcomeLabel)).length
+        const dn = pairsWithout.length - c
 
-        const rateWithInput = withCount / pairsWith.length
-        const rateWithoutInput = withoutCount / pairsWithout.length
+        if (a === 0 && c === 0) continue
+
+        const rateWithInput = a / (a + b)
+        const rateWithoutInput = c / (c + dn)
         const lift = rateWithInput - rateWithoutInput
 
-        if (Math.abs(lift) < minLift) continue
-
-        const withPct = Math.round(rateWithInput * 100)
-        const withoutPct = Math.round(rateWithoutInput * 100)
-        const laterPhrase = laterPeriodPhrase(rule.laterPeriod, rule.crossesDay)
+        const pUp = fisherExactPValue(a, b, c, dn)
+        const pDown = fisherExactPValue(c, dn, a, b)
+        const pValue = Math.min(1, 2 * Math.min(pUp, pDown))
 
         const isPositiveOutcome = positiveOutcomes.has(outcomeLabel)
         const beneficial = outcomeLabel === BAD_SLEEP_OUTCOME ? lift < 0 : isPositiveOutcome ? lift > 0 : lift < 0
 
-        findings.push({
-          inputLabel: predictorLabel,
-          outcomeLabel,
-          daysWithInput: pairsWith.length,
-          daysWithoutInput: pairsWithout.length,
-          rateWithInput,
-          rateWithoutInput,
-          lift,
-          summary: `${predictorLabel} in the ${periodWord(rule.earlierPeriod)} → ${outcomeLabel} ${laterPhrase}: ${withPct}% (n=${pairsWith.length}) vs ${withoutPct}% without (n=${pairsWithout.length}) — ${confidenceLabel(Math.min(pairsWith.length, pairsWithout.length))}.`,
-          beneficial,
-          context: `${rule.earlierPeriod}->${rule.laterPeriod}`,
-        })
+        candidates.push({ rule, inputLabel: predictorLabel, outcomeLabel, a, b, c, dn, rateWithInput, rateWithoutInput, lift, pValue, beneficial })
       }
     }
+  }
+
+  if (candidates.length === 0) return []
+
+  const correctedPs = benjaminiHochberg(candidates.map((c) => c.pValue))
+  const findings: CorrelationFinding[] = []
+
+  for (let i = 0; i < candidates.length; i++) {
+    const correctedPValue = correctedPs[i]
+    if (correctedPValue > pThreshold) continue
+
+    const cand = candidates[i]
+    const { rule } = cand
+    const withPct = Math.round(cand.rateWithInput * 100)
+    const withoutPct = Math.round(cand.rateWithoutInput * 100)
+    const laterPhrase = laterPeriodPhrase(rule.laterPeriod, rule.crossesDay)
+
+    findings.push({
+      inputLabel: cand.inputLabel,
+      outcomeLabel: cand.outcomeLabel,
+      daysWithInput: cand.a + cand.b,
+      daysWithoutInput: cand.c + cand.dn,
+      rateWithInput: cand.rateWithInput,
+      rateWithoutInput: cand.rateWithoutInput,
+      lift: cand.lift,
+      summary: `${cand.inputLabel} in the ${periodWord(rule.earlierPeriod)} → ${cand.outcomeLabel} ${laterPhrase}: ${withPct}% (n=${cand.a + cand.b}) vs ${withoutPct}% without (n=${cand.c + cand.dn}) — ${confidenceLabel(Math.min(cand.a + cand.b, cand.c + cand.dn))}.`,
+      beneficial: cand.beneficial,
+      pValue: cand.pValue,
+      correctedPValue,
+      tentative: (cand.a + cand.b) < TENTATIVE_EXPOSURE,
+      context: `${rule.earlierPeriod}->${rule.laterPeriod}`,
+    })
   }
 
   return findings

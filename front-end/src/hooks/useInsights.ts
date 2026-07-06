@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchInsights, generateInsights, setInsightDismissed } from '../api/insights'
+import { fetchInsights, fetchPatterns, generateInsights, setInsightDismissed } from '../api/insights'
 
 export function useInsights() {
   return useQuery({
@@ -15,6 +15,13 @@ export function useGenerateInsights() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['insights'] })
     },
+  })
+}
+
+export function usePatterns() {
+  return useQuery({
+    queryKey: ['patterns'],
+    queryFn: fetchPatterns,
   })
 }
 

@@ -110,6 +110,8 @@ export async function generateInsights(opts: { force?: boolean } = {}) {
     }
   }
 
+  const allFindings = [...findings, ...periodFindings]
+
   const allFindingSummaries = [
     ...findings.map((f) => f.summary),
     ...moodFindings.map((f) => f.summary),
@@ -133,6 +135,19 @@ export async function generateInsights(opts: { force?: boolean } = {}) {
     .slice(0, MAX_JOURNAL_SNIPPETS)
     .map((c) => `${c.occurredAt.toISOString().slice(0, 10)}: ${c.journalText}`)
 
+  const confoundedFindings = allFindings.filter((f) => 'confounded' in f && f.confounded)
+  const tentativeFindings = allFindings.filter((f) => 'tentative' in f && (f as { tentative?: boolean }).tentative)
+
+  const confoundNotes =
+    confoundedFindings.length > 0
+      ? confoundedFindings
+          .map((f) => {
+            const cf = (f as { confounded?: { coOccursWith: string; isolatedDays: number; isolatedRate: number | null } }).confounded!
+            return `  - "${(f as { inputLabel: string }).inputLabel}" always co-occurs with "${cf.coOccursWith}" (${cf.isolatedDays} isolated days${cf.isolatedRate != null ? `, isolated rate: ${Math.round(cf.isolatedRate * 100)}%` : ', too few to isolate'})`
+          })
+          .join('\n')
+      : '(none)'
+
   const findingsText = allFindingSummaries.map((s) => `- ${s}`).join('\n')
 
   const client = getClaudeClient()
@@ -140,37 +155,48 @@ export async function generateInsights(opts: { force?: boolean } = {}) {
     model: CLAUDE_MODEL,
     max_tokens: 1024,
     system: [
-      'You are a health-pattern analyst reviewing a personal health tracker. This app tracks HABITS — recurring behaviors the person controls — and their effect on health outcomes. Your job is to surface what is specific, data-backed, and actionable for this person.',
+      'You are a health-pattern analyst reviewing a personal health tracker. This app tracks HABITS — recurring behaviors the person controls — and their effect on health outcomes. Pick 2–3 findings worth acting on, in ~150 words total.',
       '',
-      'THE CORE DISTINCTION — habits vs one-off events:',
-      'Surface findings about HABITS (alcohol consumption, coffee, food choices, exercise, sleep schedule, screen time, etc.) even when the direction of the effect is "expected" — because the value is in the person\'s specific numbers and magnitude, not in discovering that the relationship exists.',
-      'DO NOT surface findings driven by one-off external events the person cannot control or change (a single night flight, a single stressful trip, exceptional work deadline, unusual travel disruption). The statistical engine requires 5+ occurrences, so true one-offs will not appear — but if journal context suggests a finding is driven by a single unusual event rather than a recurring habit, note that caveat instead of presenting it as a pattern.',
+      'HABITS TO SURFACE:',
+      '- Correlations where the magnitude in their own data is notable — quote the actual numbers.',
+      '- Tentative findings (fewer than 8 exposure days): caveat with "early signal — keep logging".',
+      '- Confounded findings (two habits almost always co-occur): note the ambiguity and suggest logging them separately to disambiguate.',
+      '- Time-of-day carryover: evening habit → next morning outcome.',
       '',
-      'REVERSE CAUSATION — ignore these directions:',
-      '- Nap during the day → tiredness: the nap IS the tiredness response, not its cause.',
-      '- Taking medication → feeling unwell: medication is a response to illness, not a cause.',
-      '- Any clear case where the "input" tag was logged because the person already felt bad.',
+      'IGNORE:',
+      '- Reverse causation: nap → tired, medication → feeling unwell, any input clearly logged because the person already felt bad.',
+      '- One-off external events the person cannot repeat or avoid.',
       '',
-      'WHAT TO SURFACE:',
-      '- Habit correlations even when directionally expected, IF the magnitude in their own data is notable (e.g. "alcohol appears linked to poor sleep in your data — on those days sleep score averaged 1.8 vs 3.9 otherwise").',
-      '- When an expected effect does NOT appear in their data — absence of a correlation is also informative (e.g. "coffee does not appear linked to your sleep quality based on your entries").',
-      '- Specific sub-items over parent categories: "pizza" rather than "junk food", "ice cream" rather than "sweets", "beer" rather than "alcohol" if tracked separately.',
-      '- Time-of-day carryover: evening habit X → next morning outcome Y.',
-      '- Findings labelled "tentative": caveat with "early signal — keep logging to confirm".',
-      '',
-      'RULES:',
-      '1. "boosts" and "drags": only include findings from the verified statistical list. Quote the actual numbers.',
-      '2. "notes": only for non-obvious or surprising observations. Leave empty if nothing qualifies.',
-      '3. Phrase as association not causation: "appears linked to", "on days with X, Y was more common" — never "causes" or "leads to".',
-      '4. Only compare this person against their own data — never invent population averages.',
-      '5. One sharp specific insight is worth more than five vague ones.',
+      'FORMAT RULES:',
+      '1. "boosts" and "drags": only findings from the verified statistical list. Quote numbers.',
+      '2. "notes": only non-obvious observations (e.g. an expected effect that is absent, a confound worth untangling). Leave empty if nothing qualifies.',
+      '3. Association language only — "appears linked to", "on days with X, Y was more common" — never "causes".',
+      '4. One sharp insight beats five vague ones.',
     ].join('\n'),
     tools: [insightToolSchema],
     tool_choice: { type: 'tool', name: INSIGHT_TOOL_NAME },
     messages: [
       {
         role: 'user',
-        content: `Total check-ins in dataset: ${checkInCount}\n\nVerified statistical findings:\n${findingsText}\n\nJournal excerpts:\n${journalSnippets.join('\n') || '(none)'}\n\nWhat is genuinely specific or surprising about this person's patterns? Focus on magnitude, unexpected absences, and specific items — not general health advice. Caveat any tentative findings.`,
+        content: [
+          `Total check-ins: ${checkInCount}`,
+          '',
+          'Verified statistical findings (Fisher\'s exact test, BH-corrected):',
+          findingsText,
+          '',
+          tentativeFindings.length > 0
+            ? `Tentative findings (< 8 exposure days, treat cautiously):\n${tentativeFindings.map((f) => `  - ${(f as { inputLabel: string }).inputLabel}`).join('\n')}`
+            : '',
+          '',
+          confoundedFindings.length > 0 ? `Potential confounds (two habits almost always co-occur):\n${confoundNotes}` : '',
+          '',
+          'Journal excerpts:',
+          journalSnippets.join('\n') || '(none)',
+          '',
+          'Give 2-3 actionable findings (~150 words). Flag tentative signals. For confounds, suggest how to log separately to disambiguate.',
+        ]
+          .filter(Boolean)
+          .join('\n'),
       },
     ],
   })
@@ -199,5 +225,31 @@ export async function generateInsights(opts: { force?: boolean } = {}) {
     checkInCount,
     createdCorrelationInsights,
     aiSummary,
+  }
+}
+
+export async function getPatterns() {
+  const since = new Date()
+  since.setDate(since.getDate() - LOOKBACK_DAYS)
+
+  const checkIns = await prisma.checkIn.findMany({
+    where: { occurredAt: { gte: since } },
+    include: { tags: { include: { tag: true } }, events: true },
+    orderBy: { occurredAt: 'asc' },
+  })
+
+  const days = buildDayRecords(checkIns)
+  const periods = buildPeriodRecords(checkIns)
+
+  return {
+    correlations: [
+      ...computeCorrelations(days),
+      ...computePeriodCorrelations(periods),
+    ],
+    moodImpacts: [
+      ...computeMoodImpacts(days),
+      ...computePeriodMoodImpacts(periods),
+    ],
+    checkInCount: checkIns.length,
   }
 }

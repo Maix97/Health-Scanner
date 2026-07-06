@@ -99,6 +99,14 @@ export interface CorrelationFinding {
   lift: number
   summary: string
   beneficial: boolean
+  pValue: number
+  correctedPValue: number
+  tentative: boolean
+  confounded?: {
+    coOccursWith: string
+    isolatedDays: number
+    isolatedRate: number | null
+  }
   context?: string
 }
 

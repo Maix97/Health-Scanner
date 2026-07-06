@@ -1,9 +1,14 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { prisma } from '../db/client.js'
-import { generateInsights } from '../services/insights.js'
+import { generateInsights, getPatterns } from '../services/insights.js'
 
 export const insightsRouter = Router()
+
+insightsRouter.get('/patterns', async (_req, res) => {
+  const result = await getPatterns()
+  res.json(result)
+})
 
 insightsRouter.get('/', async (req, res) => {
   const includeDismissed = req.query.includeDismissed === 'true'
