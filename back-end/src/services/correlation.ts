@@ -255,7 +255,6 @@ export function computePeriodCorrelations(periods: PeriodRecord[]): CorrelationF
     if (includesSleepOutcome(rule)) outcomeLabels.add(BAD_SLEEP_OUTCOME)
     for (const pair of pairs) {
       for (const l of pair.earlier.inputLabels) predictorLabels.add(l)
-      for (const l of pair.earlier.outcomeLabels) predictorLabels.add(l)
       for (const l of pair.later.outcomeLabels) outcomeLabels.add(l)
     }
 
@@ -314,7 +313,6 @@ export function computePeriodMoodImpacts(periods: PeriodRecord[]): MoodFinding[]
     const predictorLabels = new Set<string>()
     for (const pair of pairs) {
       for (const l of pair.earlier.inputLabels) predictorLabels.add(l)
-      for (const l of pair.earlier.outcomeLabels) predictorLabels.add(l)
     }
 
     for (const predictorLabel of predictorLabels) {
