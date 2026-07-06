@@ -1,10 +1,21 @@
 import { nextDayKey, type CarryoverPeriod, type DayRecord, type PeriodRecord } from './dayAggregation.js'
 
-export const MIN_SAMPLE = 3
 export const MIN_TOTAL_DAYS = 7
-export const MIN_LIFT = 0.2
 export const MAX_FINDINGS = 8
 export const BAD_SLEEP_OUTCOME = 'poor sleep'
+
+// Thresholds scale up as more data accumulates so early findings are shown
+// (labelled "tentative") and requirements tighten automatically over time.
+export function getThresholds(totalDays: number): { minSample: number; minLift: number; minMoodDiff: number } {
+  if (totalDays >= 30) return { minSample: 5, minLift: 0.3, minMoodDiff: 1.5 }
+  if (totalDays >= 20) return { minSample: 4, minLift: 0.25, minMoodDiff: 1.2 }
+  return { minSample: 3, minLift: 0.2, minMoodDiff: 1.0 }
+}
+
+// Keep named exports for backwards compat with tests/other callers
+export const MIN_SAMPLE = 3
+export const MIN_LIFT = 0.2
+export const MIN_MOOD_DIFF = 1.0
 // On the 1-5 sleep scale, treat 1-2 as "poor" — same Likert-style bucketing
 // as 1-3/4-6/7-10 would suggest, just scaled down for a 5-point range.
 const POOR_SLEEP_THRESHOLD = 4
@@ -54,6 +65,8 @@ function formatFinding(
 export function computeCorrelations(days: DayRecord[]): CorrelationFinding[] {
   if (days.length < MIN_TOTAL_DAYS) return []
 
+  const { minSample, minLift } = getThresholds(days.length)
+
   const inputLabels = new Set<string>()
   const outcomeLabels = new Set<string>([BAD_SLEEP_OUTCOME])
   for (const day of days) {
@@ -67,7 +80,7 @@ export function computeCorrelations(days: DayRecord[]): CorrelationFinding[] {
     const daysWith = days.filter((d) => d.inputLabels.has(inputLabel))
     const daysWithout = days.filter((d) => !d.inputLabels.has(inputLabel))
 
-    if (daysWith.length < MIN_SAMPLE || daysWithout.length < MIN_SAMPLE) continue
+    if (daysWith.length < minSample || daysWithout.length < minSample) continue
 
     for (const outcomeLabel of outcomeLabels) {
       const withCount = daysWith.filter((d) => hasOutcome(d, outcomeLabel)).length
@@ -77,7 +90,7 @@ export function computeCorrelations(days: DayRecord[]): CorrelationFinding[] {
       const rateWithoutInput = withoutCount / daysWithout.length
       const lift = rateWithInput - rateWithoutInput
 
-      if (Math.abs(lift) < MIN_LIFT) continue
+      if (Math.abs(lift) < minLift) continue
 
       findings.push({
         inputLabel,
@@ -96,8 +109,6 @@ export function computeCorrelations(days: DayRecord[]): CorrelationFinding[] {
     .sort((a, b) => Math.abs(b.lift) - Math.abs(a.lift) || b.daysWithInput - a.daysWithInput)
     .slice(0, MAX_FINDINGS)
 }
-
-export const MIN_MOOD_DIFF = 1.0
 
 export interface MoodFinding {
   inputLabel: string
@@ -120,6 +131,8 @@ function average(values: number[]): number | null {
 export function computeMoodImpacts(days: DayRecord[]): MoodFinding[] {
   if (days.length < MIN_TOTAL_DAYS) return []
 
+  const { minSample, minMoodDiff } = getThresholds(days.length)
+
   const inputLabels = new Set<string>()
   for (const day of days) {
     for (const label of day.inputLabels) inputLabels.add(label)
@@ -131,18 +144,18 @@ export function computeMoodImpacts(days: DayRecord[]): MoodFinding[] {
     const daysWith = days.filter((d) => d.inputLabels.has(inputLabel))
     const daysWithout = days.filter((d) => !d.inputLabels.has(inputLabel))
 
-    if (daysWith.length < MIN_SAMPLE || daysWithout.length < MIN_SAMPLE) continue
+    if (daysWith.length < minSample || daysWithout.length < minSample) continue
 
     const moodWith = daysWith.flatMap((d) => d.moodScores)
     const moodWithout = daysWithout.flatMap((d) => d.moodScores)
 
-    if (moodWith.length < MIN_SAMPLE || moodWithout.length < MIN_SAMPLE) continue
+    if (moodWith.length < minSample || moodWithout.length < minSample) continue
 
     const avgMoodWithInput = average(moodWith)!
     const avgMoodWithoutInput = average(moodWithout)!
     const diff = avgMoodWithInput - avgMoodWithoutInput
 
-    if (Math.abs(diff) < MIN_MOOD_DIFF) continue
+    if (Math.abs(diff) < minMoodDiff) continue
 
     findings.push({
       inputLabel,
@@ -226,6 +239,9 @@ function includesSleepOutcome(rule: PeriodPairRule): boolean {
 // Same explainable approach and guards as computeCorrelations/computeMoodImpacts,
 // just comparing an earlier period's predictors against a later period's outcomes.
 export function computePeriodCorrelations(periods: PeriodRecord[]): CorrelationFinding[] {
+  const totalDays = new Set(periods.map((p) => p.date)).size
+  const { minSample, minLift } = getThresholds(totalDays)
+
   const byKey = new Map<string, PeriodRecord>()
   for (const p of periods) byKey.set(`${p.date}|${p.period}`, p)
 
@@ -247,7 +263,7 @@ export function computePeriodCorrelations(periods: PeriodRecord[]): CorrelationF
       const pairsWith = pairs.filter((p) => predictorPresent(p, predictorLabel))
       const pairsWithout = pairs.filter((p) => !predictorPresent(p, predictorLabel))
 
-      if (pairsWith.length < MIN_SAMPLE || pairsWithout.length < MIN_SAMPLE) continue
+      if (pairsWith.length < minSample || pairsWithout.length < minSample) continue
 
       for (const outcomeLabel of outcomeLabels) {
         const withCount = pairsWith.filter((p) => hasPeriodOutcome(p, outcomeLabel)).length
@@ -257,7 +273,7 @@ export function computePeriodCorrelations(periods: PeriodRecord[]): CorrelationF
         const rateWithoutInput = withoutCount / pairsWithout.length
         const lift = rateWithInput - rateWithoutInput
 
-        if (Math.abs(lift) < MIN_LIFT) continue
+        if (Math.abs(lift) < minLift) continue
 
         const withPct = Math.round(rateWithInput * 100)
         const withoutPct = Math.round(rateWithoutInput * 100)
@@ -284,6 +300,9 @@ export function computePeriodCorrelations(periods: PeriodRecord[]): CorrelationF
 }
 
 export function computePeriodMoodImpacts(periods: PeriodRecord[]): MoodFinding[] {
+  const totalDays = new Set(periods.map((p) => p.date)).size
+  const { minSample, minMoodDiff } = getThresholds(totalDays)
+
   const byKey = new Map<string, PeriodRecord>()
   for (const p of periods) byKey.set(`${p.date}|${p.period}`, p)
 
@@ -302,18 +321,18 @@ export function computePeriodMoodImpacts(periods: PeriodRecord[]): MoodFinding[]
       const pairsWith = pairs.filter((p) => predictorPresent(p, predictorLabel))
       const pairsWithout = pairs.filter((p) => !predictorPresent(p, predictorLabel))
 
-      if (pairsWith.length < MIN_SAMPLE || pairsWithout.length < MIN_SAMPLE) continue
+      if (pairsWith.length < minSample || pairsWithout.length < minSample) continue
 
       const moodWith = pairsWith.flatMap((p) => p.later.moodScores)
       const moodWithout = pairsWithout.flatMap((p) => p.later.moodScores)
 
-      if (moodWith.length < MIN_SAMPLE || moodWithout.length < MIN_SAMPLE) continue
+      if (moodWith.length < minSample || moodWithout.length < minSample) continue
 
       const avgMoodWithInput = average(moodWith)!
       const avgMoodWithoutInput = average(moodWithout)!
       const diff = avgMoodWithInput - avgMoodWithoutInput
 
-      if (Math.abs(diff) < MIN_MOOD_DIFF) continue
+      if (Math.abs(diff) < minMoodDiff) continue
 
       const laterPhrase = laterPeriodPhrase(rule.laterPeriod, rule.crossesDay)
 

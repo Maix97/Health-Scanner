@@ -67,9 +67,14 @@ export default function Entry() {
         Log how you're feeling. You can check in more than once a day, or backdate an entry for a past day.
       </p>
 
-      <div className="mt-6 flex gap-6">
-        {/* Main form column */}
-        <div className="min-w-0 flex-1 space-y-6">
+      <div className="relative mt-6">
+        {/* Sidebar floats to the left, outside the form — only on wide screens */}
+        <div className="fixed hidden w-52 xl:block" style={{ top: '68px', left: 'max(16px, calc(50vw - 608px))', maxHeight: 'calc(100vh - 84px)', overflowY: 'auto' }}>
+          <DayOverviewSidebar checkIns={dayCheckIns} />
+        </div>
+
+        {/* Main form at its original full width */}
+        <div className="space-y-6">
           <SleepCard date={entryDate} />
           <CheckInForm
             key={dateParam ?? 'add-entry'}
@@ -100,10 +105,6 @@ export default function Entry() {
           )}
         </div>
 
-        {/* Sticky overview sidebar — hidden on small screens */}
-        <div className="hidden w-52 shrink-0 lg:block">
-          <DayOverviewSidebar checkIns={dayCheckIns} />
-        </div>
       </div>
     </div>
   )

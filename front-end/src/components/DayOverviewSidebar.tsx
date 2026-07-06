@@ -1,6 +1,6 @@
 import type { CheckIn } from '../types'
 
-const PERIODS = ['MORNING', 'DAY', 'EVENING', 'WHOLE_DAY'] as const
+const MAIN_PERIODS = ['MORNING', 'DAY', 'EVENING'] as const
 const PERIOD_LABEL: Record<string, string> = {
   MORNING: 'Morning',
   DAY: 'Day',
@@ -15,31 +15,45 @@ function PeriodRows({
   checkIns: CheckIn[]
   render: (c: CheckIn) => string | null
 }) {
-  const rows = PERIODS.flatMap((period) => {
+  const rows = MAIN_PERIODS.map((period) => {
     const c = checkIns.find((x) => x.timePeriod === period)
-    if (!c) return []
-    const content = render(c)
-    if (!content) return []
-    return [{ period, content }]
+    const content = c ? render(c) : null
+    return { period, content }
   })
-  if (rows.length === 0) return null
+
+  // Hide section entirely if no period has any data
+  if (rows.every((r) => r.content === null)) return null
+
+  const wholeDayCheckIn = checkIns.find((x) => x.timePeriod === 'WHOLE_DAY')
+  const wholeDayContent = wholeDayCheckIn ? render(wholeDayCheckIn) : null
+
   return (
-    <>
+    <div>
       {rows.map(({ period, content }) => (
-        <div key={period} className="flex gap-2 text-xs leading-relaxed">
-          <span className="w-16 shrink-0 text-slate-400">{PERIOD_LABEL[period]}</span>
-          <span className="capitalize text-slate-600">{content}</span>
+        <div key={period} className="flex gap-3 py-1.5 text-xs leading-relaxed">
+          <span className={`w-16 shrink-0 font-medium ${content ? 'text-slate-500' : 'text-slate-400'}`}>
+            {PERIOD_LABEL[period]}
+          </span>
+          <span className={`capitalize ${content ? 'text-slate-700' : 'text-slate-400'}`}>
+            {content ?? '—'}
+          </span>
         </div>
       ))}
-    </>
+      {wholeDayContent && (
+        <div key="WHOLE_DAY" className="flex gap-3 py-1.5 text-xs leading-relaxed">
+          <span className="w-16 shrink-0 font-medium text-slate-400">{PERIOD_LABEL['WHOLE_DAY']}</span>
+          <span className="capitalize text-slate-600">{wholeDayContent}</span>
+        </div>
+      )}
+    </div>
   )
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   if (!children) return null
   return (
-    <div className="space-y-1">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{title}</p>
+    <div>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">{title}</p>
       {children}
     </div>
   )
@@ -85,14 +99,22 @@ export default function DayOverviewSidebar({ checkIns }: Props) {
 
   if (!foodRows && !exerciseRows && !healthRows && !toggleRows) return null
 
+  const sections = [
+    { key: 'food', title: 'Food', rows: foodRows },
+    { key: 'exercise', title: 'Exercise', rows: exerciseRows },
+    { key: 'health', title: 'Health', rows: healthRows },
+    { key: 'other', title: 'Other', rows: toggleRows },
+  ].filter((s) => s.rows)
+
   return (
-    <div className="sticky top-6 rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-sm">
-      <p className="mb-3 text-xs font-semibold text-slate-500">Today's overview</p>
-      <div className="space-y-4">
-        {foodRows && <Section title="Food">{foodRows}</Section>}
-        {exerciseRows && <Section title="Exercise">{exerciseRows}</Section>}
-        {healthRows && <Section title="Health">{healthRows}</Section>}
-        {toggleRows && <Section title="Other">{toggleRows}</Section>}
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="mb-4 text-xs font-semibold text-slate-500">Day overview</p>
+      <div className="divide-y divide-slate-200">
+        {sections.map((s) => (
+          <div key={s.key} className="py-3 first:pt-0 last:pb-0">
+            <Section title={s.title}>{s.rows}</Section>
+          </div>
+        ))}
       </div>
     </div>
   )
