@@ -131,6 +131,7 @@ export default function MoodChart({ data, show, onDayClick }: MoodChartProps) {
               stroke="#94a3b8"
               strokeWidth={2}
               dot={<MoodDot />}
+              activeDot={{ r: 8, style: { cursor: 'pointer' }, onClick: (_e: any, p: any) => onDayClick?.(p.payload.date) }}
               connectNulls
               isAnimationActive={false}
             />
@@ -144,6 +145,7 @@ export default function MoodChart({ data, show, onDayClick }: MoodChartProps) {
               strokeWidth={2}
               strokeDasharray="5 3"
               dot={<EnergyDot />}
+              activeDot={{ r: 8, style: { cursor: 'pointer' }, onClick: (_e: any, p: any) => onDayClick?.(p.payload.date) }}
               connectNulls
               isAnimationActive={false}
             />
@@ -157,6 +159,7 @@ export default function MoodChart({ data, show, onDayClick }: MoodChartProps) {
               strokeWidth={2}
               strokeDasharray="2 4"
               dot={<SleepDot />}
+              activeDot={{ r: 8, style: { cursor: 'pointer' }, onClick: (_e: any, p: any) => onDayClick?.(p.payload.date) }}
               connectNulls
               isAnimationActive={false}
             />
