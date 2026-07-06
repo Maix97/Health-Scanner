@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import CheckInForm, { type CheckInFormValues } from '../components/CheckInForm'
+import DayOverviewSidebar from '../components/DayOverviewSidebar'
 import SleepCard from '../components/SleepCard'
-import { useCreateCheckIn, usePatchCheckIn } from '../hooks/useCheckIns'
+import { useCheckInsForDate, useCreateCheckIn, usePatchCheckIn } from '../hooks/useCheckIns'
 import { checkInFormValuesToPayload, checkInToFormValues } from '../lib/checkInForm'
 import { todayDateString } from '../lib/time'
 import type { CheckIn } from '../types'
@@ -15,6 +16,8 @@ export default function Entry() {
   const [searchParams] = useSearchParams()
   const dateParam = searchParams.get('date') ?? undefined
   const [entryDate, setEntryDate] = useState(dateParam ?? todayDateString)
+
+  const { data: dayCheckIns = [] } = useCheckInsForDate(entryDate)
 
   async function handleSubmit(values: CheckInFormValues, overwriteCheckInId?: string) {
     const checkIn = overwriteCheckInId
@@ -37,7 +40,6 @@ export default function Entry() {
         <p className="mt-1 text-slate-500">
           {new Date(editingCheckIn.occurredAt).toLocaleString()}
         </p>
-
         <div className="mt-6">
           <CheckInForm
             key={editingCheckIn.id}
@@ -65,36 +67,44 @@ export default function Entry() {
         Log how you're feeling. You can check in more than once a day, or backdate an entry for a past day.
       </p>
 
-      <div className="mt-6 space-y-6">
-        <SleepCard date={entryDate} />
-        <CheckInForm
-          key={dateParam ?? 'add-entry'}
-          initialDate={entryDate}
-          onSubmit={handleSubmit}
-          submitLabel="Save check-in"
-          pendingLabel="Saving..."
-          isSubmitting={createCheckIn.isPending}
-          isError={createCheckIn.isError}
-          resetAfterSubmit
-          allowPastDate
-          onEditCheckIn={setEditingCheckIn}
-          onDateChange={setEntryDate}
-        />
-      </div>
+      <div className="mt-6 flex gap-6">
+        {/* Main form column */}
+        <div className="min-w-0 flex-1 space-y-6">
+          <SleepCard date={entryDate} />
+          <CheckInForm
+            key={dateParam ?? 'add-entry'}
+            initialDate={entryDate}
+            onSubmit={handleSubmit}
+            submitLabel="Save check-in"
+            pendingLabel="Saving..."
+            isSubmitting={createCheckIn.isPending}
+            isError={createCheckIn.isError}
+            resetAfterSubmit
+            allowPastDate
+            onEditCheckIn={setEditingCheckIn}
+            onDateChange={setEntryDate}
+          />
 
-      {lastResult && (
-        <div className="mt-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          <p className="font-medium">Check-in saved.</p>
-          {extractedFromLastResult.length > 0 && (
-            <p className="mt-1">
-              Extracted from your journal: {extractedFromLastResult.map((e) => e.label).join(', ')}
-            </p>
+          {lastResult && (
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              <p className="font-medium">Check-in saved.</p>
+              {extractedFromLastResult.length > 0 && (
+                <p className="mt-1">
+                  Extracted from your journal: {extractedFromLastResult.map((e) => e.label).join(', ')}
+                </p>
+              )}
+              <Link to="/" className="mt-2 inline-block font-medium underline">
+                Back to Dashboard
+              </Link>
+            </div>
           )}
-          <Link to="/" className="mt-2 inline-block font-medium underline">
-            Back to Dashboard
-          </Link>
         </div>
-      )}
+
+        {/* Sticky overview sidebar — hidden on small screens */}
+        <div className="hidden w-52 shrink-0 lg:block">
+          <DayOverviewSidebar checkIns={dayCheckIns} />
+        </div>
+      </div>
     </div>
   )
 }
