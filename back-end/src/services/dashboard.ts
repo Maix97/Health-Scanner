@@ -44,6 +44,12 @@ function buildDailyMoodSeries(dayRecords: DayRecord[], days: number): DailyMoodP
   return points
 }
 
+export interface PeriodStat {
+  current: number | null
+  previous: number | null
+  changePct: number | null
+}
+
 export interface DashboardData {
   dailyMood: DailyMoodPoint[]
   boosts: MoodFinding[]
@@ -51,17 +57,55 @@ export interface DashboardData {
   positiveCorrelations: CorrelationFinding[]
   negativeCorrelations: CorrelationFinding[]
   checkInCount: number
+  stats: {
+    mood: PeriodStat
+    energy: PeriodStat
+    sleep: PeriodStat
+  }
+}
+
+function mkStat(curr: number | null, prev: number | null): PeriodStat {
+  const changePct =
+    curr != null && prev != null && prev > 0
+      ? Math.round(((curr - prev) / prev) * 100)
+      : null
+  return { current: curr, previous: prev, changePct }
+}
+
+interface RawCheckIn {
+  occurredAt: Date
+  moodScore: number | null
+  energyScore: number | null
+  sleepScore: number | null
+}
+
+function computeStats(current: RawCheckIn[], previous: RawCheckIn[]) {
+  const nums = <T>(arr: T[], fn: (v: T) => number | null): number[] =>
+    arr.flatMap((v) => { const n = fn(v); return n != null ? [n] : [] })
+
+  return {
+    mood: mkStat(average(nums(current, (c) => c.moodScore)), average(nums(previous, (c) => c.moodScore))),
+    energy: mkStat(average(nums(current, (c) => c.energyScore)), average(nums(previous, (c) => c.energyScore))),
+    sleep: mkStat(average(nums(current, (c) => c.sleepScore)), average(nums(previous, (c) => c.sleepScore))),
+  }
 }
 
 export async function getDashboardData(days: number): Promise<DashboardData> {
   const since = new Date()
   since.setDate(since.getDate() - days)
 
-  const checkIns = await prisma.checkIn.findMany({
-    where: { occurredAt: { gte: since } },
+  // Fetch 2× window so we can compare current period against the one before it.
+  const sinceDouble = new Date()
+  sinceDouble.setDate(sinceDouble.getDate() - 2 * days)
+
+  const allCheckIns = await prisma.checkIn.findMany({
+    where: { occurredAt: { gte: sinceDouble } },
     include: { tags: { include: { tag: true } }, events: true },
     orderBy: { occurredAt: 'asc' },
   })
+
+  const checkIns = allCheckIns.filter((c) => c.occurredAt >= since)
+  const prevCheckIns = allCheckIns.filter((c) => c.occurredAt < since)
 
   const dayRecords = buildDayRecords(checkIns)
   const periodRecords = buildPeriodRecords(checkIns)
@@ -81,5 +125,6 @@ export async function getDashboardData(days: number): Promise<DashboardData> {
     positiveCorrelations,
     negativeCorrelations,
     checkInCount: checkIns.length,
+    stats: computeStats(checkIns, prevCheckIns),
   }
 }

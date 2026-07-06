@@ -9,6 +9,12 @@ export interface DailyMoodPoint {
   checkInCount: number
 }
 
+export interface PeriodStat {
+  current: number | null
+  previous: number | null
+  changePct: number | null
+}
+
 export interface DashboardData {
   dailyMood: DailyMoodPoint[]
   boosts: MoodFinding[]
@@ -16,6 +22,11 @@ export interface DashboardData {
   positiveCorrelations: CorrelationFinding[]
   negativeCorrelations: CorrelationFinding[]
   checkInCount: number
+  stats: {
+    mood: PeriodStat
+    energy: PeriodStat
+    sleep: PeriodStat
+  }
 }
 
 export function fetchDashboard(days: number) {

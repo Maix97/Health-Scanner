@@ -165,7 +165,7 @@ export default function MoodChart({ data, show, onDayClick }: MoodChartProps) {
             />
           )}
           {/* Invisible line so recharts renders the right Y-axis */}
-          <Line yAxisId="right" dataKey="avgMood" stroke="transparent" dot={false} legendType="none" isAnimationActive={false} />
+          <Line yAxisId="right" dataKey="avgMood" stroke="transparent" dot={false} activeDot={false} legendType="none" isAnimationActive={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>

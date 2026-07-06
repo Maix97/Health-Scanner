@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import MoodChart, { type ChartToggles } from '../components/MoodChart'
 import { useDashboard } from '../hooks/useDashboard'
+import type { PeriodStat } from '../api/dashboard'
 import type { CorrelationFinding, MoodFinding } from '../types'
 
 const RANGE_OPTIONS = [7, 14, 30]
@@ -14,6 +15,47 @@ const SERIES: { key: keyof ChartToggles; label: string; color: string; dash?: st
 
 function cap(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function StatPill({
+  label,
+  stat,
+  color,
+  scale,
+}: {
+  label: string
+  stat: PeriodStat
+  color: string
+  scale: string
+}) {
+  const { current, changePct } = stat
+  let changeEl: React.ReactNode = <span className="text-slate-300">—</span>
+  if (changePct != null) {
+    if (changePct > 0) {
+      changeEl = <span className="text-emerald-500">↑ +{changePct}%</span>
+    } else if (changePct < 0) {
+      changeEl = <span className="text-rose-500">↓ {changePct}%</span>
+    } else {
+      changeEl = <span className="text-slate-400">→ 0%</span>
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[11px] font-medium text-slate-400">{label}</span>
+      <div className="flex items-baseline gap-1.5">
+        {current != null ? (
+          <span className="text-lg font-semibold text-slate-800" style={{ color }}>
+            {current.toFixed(1)}
+          </span>
+        ) : (
+          <span className="text-lg font-semibold text-slate-300">—</span>
+        )}
+        {current != null && <span className="text-xs text-slate-400">{scale}</span>}
+      </div>
+      <span className="text-xs">{changeEl}</span>
+    </div>
+  )
 }
 
 function MoodFindingRow({ f, positive }: { f: MoodFinding; positive: boolean }) {
@@ -163,9 +205,18 @@ export default function Dashboard() {
             No check-ins in this range yet. Log your first one to see your mood trend here.
           </p>
         ) : (
-          <div className="mt-2">
-            <MoodChart data={data?.dailyMood ?? []} show={show} onDayClick={handleChartDayClick} />
-          </div>
+          <>
+            {data?.stats && (
+              <div className="mt-3 flex gap-6 border-b border-slate-100 pb-3">
+                <StatPill label="Mood" stat={data.stats.mood} color="#64748b" scale="/10" />
+                <StatPill label="Energy" stat={data.stats.energy} color="#f59e0b" scale="/10" />
+                <StatPill label="Sleep" stat={data.stats.sleep} color="#a78bfa" scale="/10" />
+              </div>
+            )}
+            <div className="mt-2">
+              <MoodChart data={data?.dailyMood ?? []} show={show} onDayClick={handleChartDayClick} />
+            </div>
+          </>
         )}
       </section>
 
