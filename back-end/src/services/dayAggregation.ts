@@ -10,6 +10,7 @@ export interface DayRecord {
   date: string
   inputLabels: Set<string>
   outcomeLabels: Set<string>
+  positiveOutcomeLabels: Set<string>
   sleepScore: number | null
   moodScores: number[]
   energyScores: number[]
@@ -30,7 +31,7 @@ export function buildDayRecords(checkIns: CheckInWithRelations[]): DayRecord[] {
     const key = dayKey(checkIn.occurredAt)
     let record = byDay.get(key)
     if (!record) {
-      record = { date: key, inputLabels: new Set(), outcomeLabels: new Set(), sleepScore: null, moodScores: [], energyScores: [] }
+      record = { date: key, inputLabels: new Set(), outcomeLabels: new Set(), positiveOutcomeLabels: new Set(), sleepScore: null, moodScores: [], energyScores: [] }
       byDay.set(key, record)
     }
 
@@ -38,7 +39,9 @@ export function buildDayRecords(checkIns: CheckInWithRelations[]): DayRecord[] {
       if (INPUT_TAG_CATEGORIES.includes(t.tag.category)) {
         record.inputLabels.add(t.tag.label.toLowerCase())
       } else {
-        record.outcomeLabels.add(t.tag.label.toLowerCase())
+        const label = t.tag.label.toLowerCase()
+        record.outcomeLabels.add(label)
+        if (t.tag.polarity === 'POSITIVE') record.positiveOutcomeLabels.add(label)
       }
     }
 
@@ -96,6 +99,7 @@ export interface PeriodRecord {
   period: CarryoverPeriod
   inputLabels: Set<string>
   outcomeLabels: Set<string>
+  positiveOutcomeLabels: Set<string>
   moodScores: number[]
   energyScores: number[]
   sleepScore: number | null
@@ -120,7 +124,7 @@ export function buildPeriodRecords(checkIns: CheckInWithRelations[]): PeriodReco
 
     let record = byKey.get(key)
     if (!record) {
-      record = { date, period, inputLabels: new Set(), outcomeLabels: new Set(), moodScores: [], energyScores: [], sleepScore: null }
+      record = { date, period, inputLabels: new Set(), outcomeLabels: new Set(), positiveOutcomeLabels: new Set(), moodScores: [], energyScores: [], sleepScore: null }
       byKey.set(key, record)
     }
 
@@ -128,7 +132,9 @@ export function buildPeriodRecords(checkIns: CheckInWithRelations[]): PeriodReco
       if (INPUT_TAG_CATEGORIES.includes(t.tag.category)) {
         record.inputLabels.add(t.tag.label.toLowerCase())
       } else {
-        record.outcomeLabels.add(t.tag.label.toLowerCase())
+        const label = t.tag.label.toLowerCase()
+        record.outcomeLabels.add(label)
+        if (t.tag.polarity === 'POSITIVE') record.positiveOutcomeLabels.add(label)
       }
     }
 

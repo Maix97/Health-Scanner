@@ -29,8 +29,7 @@ export interface CorrelationFinding {
   rateWithoutInput: number
   lift: number
   summary: string
-  // Disambiguates findings with the same label pair from different period
-  // relationships (e.g. morning->day vs morning->evening) for cache keying.
+  beneficial: boolean
   context?: string
 }
 
@@ -69,9 +68,11 @@ export function computeCorrelations(days: DayRecord[]): CorrelationFinding[] {
 
   const inputLabels = new Set<string>()
   const outcomeLabels = new Set<string>([BAD_SLEEP_OUTCOME])
+  const positiveOutcomes = new Set<string>()
   for (const day of days) {
     for (const label of day.inputLabels) inputLabels.add(label)
     for (const label of day.outcomeLabels) outcomeLabels.add(label)
+    for (const label of day.positiveOutcomeLabels) positiveOutcomes.add(label)
   }
 
   const findings: CorrelationFinding[] = []
@@ -92,6 +93,9 @@ export function computeCorrelations(days: DayRecord[]): CorrelationFinding[] {
 
       if (Math.abs(lift) < minLift) continue
 
+      const isPositiveOutcome = positiveOutcomes.has(outcomeLabel)
+      const beneficial = outcomeLabel === BAD_SLEEP_OUTCOME ? lift < 0 : isPositiveOutcome ? lift > 0 : lift < 0
+
       findings.push({
         inputLabel,
         outcomeLabel,
@@ -101,6 +105,7 @@ export function computeCorrelations(days: DayRecord[]): CorrelationFinding[] {
         rateWithoutInput,
         lift,
         summary: formatFinding(inputLabel, outcomeLabel, rateWithInput, rateWithoutInput, daysWith.length, daysWithout.length),
+        beneficial,
       })
     }
   }
@@ -245,6 +250,11 @@ export function computePeriodCorrelations(periods: PeriodRecord[]): CorrelationF
   const byKey = new Map<string, PeriodRecord>()
   for (const p of periods) byKey.set(`${p.date}|${p.period}`, p)
 
+  const positiveOutcomes = new Set<string>()
+  for (const p of periods) {
+    for (const l of p.positiveOutcomeLabels) positiveOutcomes.add(l)
+  }
+
   const findings: CorrelationFinding[] = []
 
   for (const rule of PERIOD_PAIR_RULES) {
@@ -278,6 +288,9 @@ export function computePeriodCorrelations(periods: PeriodRecord[]): CorrelationF
         const withoutPct = Math.round(rateWithoutInput * 100)
         const laterPhrase = laterPeriodPhrase(rule.laterPeriod, rule.crossesDay)
 
+        const isPositiveOutcome = positiveOutcomes.has(outcomeLabel)
+        const beneficial = outcomeLabel === BAD_SLEEP_OUTCOME ? lift < 0 : isPositiveOutcome ? lift > 0 : lift < 0
+
         findings.push({
           inputLabel: predictorLabel,
           outcomeLabel,
@@ -287,6 +300,7 @@ export function computePeriodCorrelations(periods: PeriodRecord[]): CorrelationF
           rateWithoutInput,
           lift,
           summary: `${predictorLabel} in the ${periodWord(rule.earlierPeriod)} → ${outcomeLabel} ${laterPhrase}: ${withPct}% (n=${pairsWith.length}) vs ${withoutPct}% without (n=${pairsWithout.length}) — ${confidenceLabel(Math.min(pairsWith.length, pairsWithout.length))}.`,
+          beneficial,
           context: `${rule.earlierPeriod}->${rule.laterPeriod}`,
         })
       }

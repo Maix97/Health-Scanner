@@ -75,6 +75,16 @@ so these kinds of things should be kept in mind
 
 main dashboard graph can be clicked to go to the day im hovering.
 
-dashboard default graph size is 7d
+dashboard default graph size is 14d
 
 ----
+
+add entry goes to current day by default
+
+----
+can we have on the side an overview of the day 
+
+like food :
+--
+
+the mood dot in graph is not clickable in the middle for some reason. (others energy and sleep are fine)

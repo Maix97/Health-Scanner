@@ -1,6 +1,13 @@
 import { prisma } from '../db/client.js'
 import { buildDayRecords, buildPeriodRecords, dayKey, type DayRecord } from './dayAggregation.js'
-import { computeMoodImpacts, computePeriodMoodImpacts, type MoodFinding } from './correlation.js'
+import {
+  computeCorrelations,
+  computeMoodImpacts,
+  computePeriodCorrelations,
+  computePeriodMoodImpacts,
+  type CorrelationFinding,
+  type MoodFinding,
+} from './correlation.js'
 
 export interface DailyMoodPoint {
   date: string
@@ -15,9 +22,6 @@ function average(values: number[]): number | null {
   return values.reduce((sum, v) => sum + v, 0) / values.length
 }
 
-// Always returns exactly `days` points (oldest to newest), including days
-// with no check-ins (avgMood: null), so the chart can show real gaps rather
-// than silently compressing the timeline.
 function buildDailyMoodSeries(dayRecords: DayRecord[], days: number): DailyMoodPoint[] {
   const byDate = new Map(dayRecords.map((d) => [d.date, d]))
   const points: DailyMoodPoint[] = []
@@ -44,6 +48,8 @@ export interface DashboardData {
   dailyMood: DailyMoodPoint[]
   boosts: MoodFinding[]
   drags: MoodFinding[]
+  positiveCorrelations: CorrelationFinding[]
+  negativeCorrelations: CorrelationFinding[]
   checkInCount: number
 }
 
@@ -61,20 +67,19 @@ export async function getDashboardData(days: number): Promise<DashboardData> {
   const periodRecords = buildPeriodRecords(checkIns)
 
   const moodFindings = [...computeMoodImpacts(dayRecords), ...computePeriodMoodImpacts(periodRecords)]
+  const boosts = moodFindings.filter((f) => f.diff > 0).sort((a, b) => b.diff - a.diff).slice(0, 4)
+  const drags = moodFindings.filter((f) => f.diff < 0).sort((a, b) => a.diff - b.diff).slice(0, 4)
 
-  const boosts = moodFindings
-    .filter((f) => f.diff > 0)
-    .sort((a, b) => b.diff - a.diff)
-    .slice(0, 5)
-  const drags = moodFindings
-    .filter((f) => f.diff < 0)
-    .sort((a, b) => a.diff - b.diff)
-    .slice(0, 5)
+  const correlations = [...computeCorrelations(dayRecords), ...computePeriodCorrelations(periodRecords)]
+  const positiveCorrelations = correlations.filter((f) => f.beneficial).sort((a, b) => Math.abs(b.lift) - Math.abs(a.lift)).slice(0, 4)
+  const negativeCorrelations = correlations.filter((f) => !f.beneficial).sort((a, b) => Math.abs(b.lift) - Math.abs(a.lift)).slice(0, 4)
 
   return {
     dailyMood: buildDailyMoodSeries(dayRecords, days),
     boosts,
     drags,
+    positiveCorrelations,
+    negativeCorrelations,
     checkInCount: checkIns.length,
   }
 }

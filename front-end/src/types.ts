@@ -89,6 +89,19 @@ export interface MoodFinding {
   context?: string
 }
 
+export interface CorrelationFinding {
+  inputLabel: string
+  outcomeLabel: string
+  daysWithInput: number
+  daysWithoutInput: number
+  rateWithInput: number
+  rateWithoutInput: number
+  lift: number
+  summary: string
+  beneficial: boolean
+  context?: string
+}
+
 export interface CreateCheckInInput {
   occurredAt?: string
   timePeriod?: TimePeriod | null
