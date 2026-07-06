@@ -1,8 +1,8 @@
 import { nextDayKey, type CarryoverPeriod, type DayRecord, type PeriodRecord } from './dayAggregation.js'
 
-export const MIN_SAMPLE = 5
-export const MIN_TOTAL_DAYS = 10
-export const MIN_LIFT = 0.3
+export const MIN_SAMPLE = 3
+export const MIN_TOTAL_DAYS = 7
+export const MIN_LIFT = 0.2
 export const MAX_FINDINGS = 8
 export const BAD_SLEEP_OUTCOME = 'poor sleep'
 // On the 1-5 sleep scale, treat 1-2 as "poor" — same Likert-style bucketing
@@ -97,7 +97,7 @@ export function computeCorrelations(days: DayRecord[]): CorrelationFinding[] {
     .slice(0, MAX_FINDINGS)
 }
 
-export const MIN_MOOD_DIFF = 1.5
+export const MIN_MOOD_DIFF = 1.0
 
 export interface MoodFinding {
   inputLabel: string
