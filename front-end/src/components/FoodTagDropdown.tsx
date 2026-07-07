@@ -76,18 +76,21 @@ export default function FoodTagDropdown({
         <button
           type="button"
           onClick={handleParentClick}
-          className="py-1.5 pl-3 pr-2 hover:opacity-80"
+          className="py-1.5 pl-3 pr-2 hover:opacity-80 max-w-[180px] text-left"
         >
-          {tag.label}
-          {selectedChildCount > 0 && (
-            <span
-              className={`ml-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold ${
-                isParentSelected ? 'bg-white text-slate-900' : 'bg-slate-800 text-white'
-              }`}
-            >
-              {selectedChildCount}
-            </span>
-          )}
+          <span className="block truncate">
+            {tag.label}
+            {selectedChildCount > 0 && (
+              <span className={`ml-1 text-[11px] font-normal ${isParentSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                {(() => {
+                  const selected = children.filter((c) => selectedFoodIds.includes(c.id))
+                  if (selected.length === 1) return `· ${selected[0].label}`
+                  if (selected.length === 2) return `· ${selected[0].label}, ${selected[1].label}`
+                  return `· ${selected[0].label} +${selected.length - 1}`
+                })()}
+              </span>
+            )}
+          </span>
         </button>
         {isParentSelected && (
           <div className="flex gap-0.5 px-1" onClick={(e) => e.stopPropagation()}>

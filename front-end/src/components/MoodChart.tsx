@@ -107,7 +107,7 @@ export default function MoodChart({ data, show, onDayClick }: MoodChartProps) {
           />
           <YAxis
             yAxisId="left"
-            domain={[1, 10]}
+            domain={[0, 10]}
             ticks={[1, 5, 10]}
             tick={{ fontSize: 11, fill: '#94a3b8' }}
             width={24}
@@ -115,7 +115,7 @@ export default function MoodChart({ data, show, onDayClick }: MoodChartProps) {
           <YAxis
             yAxisId="right"
             orientation="right"
-            domain={[1, 10]}
+            domain={[0, 10]}
             ticks={[1, 5, 10]}
             tick={{ fontSize: 11, fill: '#94a3b8' }}
             width={28}

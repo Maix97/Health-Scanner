@@ -68,7 +68,7 @@ function DayMiniChart({ checkIns }: DayMiniChartProps) {
             <ReferenceLine yAxisId="main" y={5}  stroke="#e2e8f0" strokeDasharray="3 3" />
             <ReferenceLine yAxisId="main" y={1}  stroke="#e2e8f0" strokeDasharray="3 3" />
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-            <YAxis yAxisId="main" domain={[1, 10]} ticks={[1, 5, 10]} tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} width={20} />
+            <YAxis yAxisId="main" domain={[0, 10]} ticks={[1, 5, 10]} tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} width={20} />
             <Tooltip content={<MiniTooltip />} />
             {hasMood && (
               <Line yAxisId="main" type="monotone" dataKey="mood" stroke="#94a3b8" strokeWidth={2} dot={<MoodDot />} connectNulls />
