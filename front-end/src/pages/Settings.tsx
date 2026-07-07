@@ -252,7 +252,8 @@ export default function Settings() {
           />
           <TagGroup title="Exercise" tags={exerciseTags} onRequestDelete={setPendingDeleteTag} />
           <TagGroup title="Quick toggles" tags={quickToggleTags} onRequestDelete={setPendingDeleteTag} />
-          <TagGroup title="Food" tags={foodTags.filter((t) => !t.parentTagId)} onRequestDelete={setPendingDeleteTag} />
+          <TagGroup title="Food — categories" tags={foodTags.filter((t) => !t.parentTagId)} onRequestDelete={setPendingDeleteTag} />
+          <TagGroup title="Food — items" tags={foodTags.filter((t) => !!t.parentTagId)} onRequestDelete={setPendingDeleteTag} />
         </div>
       </section>
 

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { moodColor, energyColor } from '../lib/mood'
 import type { CheckIn, TimePeriod } from '../types'
@@ -38,7 +39,7 @@ interface DayMiniChartProps {
   checkIns: CheckIn[]
 }
 
-export default function DayMiniChart({ checkIns }: DayMiniChartProps) {
+function DayMiniChart({ checkIns }: DayMiniChartProps) {
   const hasMood = checkIns.some((c) => c.moodScore != null)
   const hasEnergy = checkIns.some((c) => c.energyScore != null)
   if (!hasMood && !hasEnergy) return null
@@ -70,10 +71,10 @@ export default function DayMiniChart({ checkIns }: DayMiniChartProps) {
             <YAxis yAxisId="main" domain={[1, 10]} ticks={[1, 5, 10]} tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} width={20} />
             <Tooltip content={<MiniTooltip />} />
             {hasMood && (
-              <Line yAxisId="main" type="monotone" dataKey="mood" stroke="#94a3b8" strokeWidth={2} dot={<MoodDot />} connectNulls isAnimationActive={false} />
+              <Line yAxisId="main" type="monotone" dataKey="mood" stroke="#94a3b8" strokeWidth={2} dot={<MoodDot />} connectNulls />
             )}
             {hasEnergy && (
-              <Line yAxisId="main" type="monotone" dataKey="energy" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 2" dot={<EnergyDot />} connectNulls isAnimationActive={false} />
+              <Line yAxisId="main" type="monotone" dataKey="energy" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 2" dot={<EnergyDot />} connectNulls />
             )}
           </LineChart>
         </ResponsiveContainer>
@@ -85,3 +86,5 @@ export default function DayMiniChart({ checkIns }: DayMiniChartProps) {
     </div>
   )
 }
+
+export default memo(DayMiniChart)
