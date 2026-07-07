@@ -26,6 +26,9 @@ const QUICK_TOGGLE_TAGS = [
   'late screen time',
   'took medication',
   'hydrated well',
+  'hydration low',
+  'hydration ok',
+  'hydration good',
 ]
 
 const EXERCISE_TAGS = ['running', 'walking', 'hiking', 'swimming', 'bicycling', 'weights', 'calisthenics']

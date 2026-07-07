@@ -13,7 +13,7 @@ import { useCheckInsForDate } from '../hooks/useCheckIns'
 import { periodLabel, todayDateString } from '../lib/time'
 import { checkInToFormValues } from '../lib/checkInForm'
 import DayMiniChart from './DayMiniChart'
-import type { CheckIn, Polarity, TagCategory, TimePeriod } from '../types'
+import type { CheckIn, Polarity, Tag, TagCategory, TimePeriod } from '../types'
 
 export interface CheckInFormValues {
   date: string
@@ -45,6 +45,51 @@ export function defaultCheckInFormValues(): CheckInFormValues {
   }
 }
 
+
+const HYDRATION_LEVELS: { label: string; display: string; active: string }[] = [
+  { label: 'hydration low', display: 'Low', active: 'border-rose-300 bg-rose-50 text-rose-700' },
+  { label: 'hydration ok', display: 'OK', active: 'border-amber-300 bg-amber-50 text-amber-700' },
+  { label: 'hydration good', display: 'Good', active: 'border-sky-300 bg-sky-50 text-sky-700' },
+]
+
+function HydrationSelector({
+  tags,
+  selectedIds,
+  onToggle,
+}: {
+  tags: Tag[]
+  selectedIds: string[]
+  onToggle: (id: string) => void
+}) {
+  const levels = HYDRATION_LEVELS.map(({ label, display, active }) => ({
+    tag: tags.find((t) => t.label === label),
+    display,
+    active,
+  })).filter((l): l is { tag: Tag; display: string; active: string } => l.tag != null)
+
+  if (levels.length === 0) return null
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="mr-0.5 text-sm">💧</span>
+      {levels.map(({ tag, display, active }) => {
+        const isActive = selectedIds.includes(tag.id)
+        return (
+          <button
+            key={tag.id}
+            type="button"
+            onClick={() => onToggle(tag.id)}
+            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+              isActive ? active : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+            }`}
+          >
+            {display}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 function NewTagInput({ onAdd }: { onAdd: (label: string) => void }) {
   const [value, setValue] = useState('')
@@ -169,16 +214,21 @@ export default function CheckInForm({
   const negativeTags = feelingTags.filter((t) => t.polarity === 'NEGATIVE')
   const positiveTags = feelingTags.filter((t) => t.polarity === 'POSITIVE')
 
+  const hydrationTagIds = new Set(
+    quickToggleTags.filter((t) => t.label.startsWith('hydration ')).map((t) => t.id),
+  )
+
   function toggle(id: string, key: MultiTagKey) {
     setValues((v) => {
       const isSelected = v[key].includes(id)
       const tagIntensities = { ...v.tagIntensities }
-      if (isSelected) delete tagIntensities[id]
-      return {
-        ...v,
-        [key]: isSelected ? v[key].filter((x) => x !== id) : [...v[key], id],
-        tagIntensities,
+      if (isSelected) {
+        delete tagIntensities[id]
+        return { ...v, [key]: v[key].filter((x) => x !== id), tagIntensities }
       }
+      // Hydration levels are mutually exclusive — deselect the others before adding.
+      const base = hydrationTagIds.has(id) ? v[key].filter((x) => !hydrationTagIds.has(x)) : v[key]
+      return { ...v, [key]: [...base, id], tagIntensities }
     })
   }
 
@@ -404,18 +454,25 @@ export default function CheckInForm({
       <section>
         <h2 className="mb-2 text-sm font-semibold text-slate-700">Quick toggles</h2>
         {quickToggleTagsLoading && <p className="text-sm text-slate-400">Loading...</p>}
-        <div className="flex flex-wrap gap-2">
-          {quickToggleTags.map((tag) => (
-            <RateableTagChip
-              key={tag.id}
-              label={tag.label}
-              selected={values.selectedToggleIds.includes(tag.id)}
-              intensity={values.tagIntensities[tag.id]}
-              onToggle={() => toggle(tag.id, 'selectedToggleIds')}
-              onIntensityChange={(value) => setTagIntensity(tag.id, value)}
-            />
-          ))}
-          <NewTagInput onAdd={(label) => handleAddTag(label, 'QUICK_TOGGLE', undefined, 'selectedToggleIds')} />
+        <div className="flex flex-col gap-2.5">
+          <HydrationSelector
+            tags={quickToggleTags}
+            selectedIds={values.selectedToggleIds}
+            onToggle={(id) => toggle(id, 'selectedToggleIds')}
+          />
+          <div className="flex flex-wrap gap-2">
+            {quickToggleTags.filter((t) => !t.label.startsWith('hydration ')).map((tag) => (
+              <RateableTagChip
+                key={tag.id}
+                label={tag.label}
+                selected={values.selectedToggleIds.includes(tag.id)}
+                intensity={values.tagIntensities[tag.id]}
+                onToggle={() => toggle(tag.id, 'selectedToggleIds')}
+                onIntensityChange={(value) => setTagIntensity(tag.id, value)}
+              />
+            ))}
+            <NewTagInput onAdd={(label) => handleAddTag(label, 'QUICK_TOGGLE', undefined, 'selectedToggleIds')} />
+          </div>
         </div>
       </section>
 
