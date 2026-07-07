@@ -110,14 +110,13 @@ exportRouter.post('/import', async (req, res) => {
     const sortedTags = [...tags].sort((a, b) => (a.parentTagId ? 1 : 0) - (b.parentTagId ? 1 : 0))
     for (const tag of sortedTags) {
       if (tag.isPreset) {
-        await tx.tag.upsert({
-          where: { label: tag.label },
-          update: {},
-          create: { id: tag.id, label: tag.label, category: tag.category, polarity: tag.polarity ?? undefined, isPreset: true },
-        })
+        const existing = await tx.tag.findFirst({ where: { label: tag.label, isPreset: true } })
+        if (!existing) {
+          await tx.tag.create({ data: { id: tag.id, label: tag.label, category: tag.category, polarity: tag.polarity ?? undefined, isPreset: true } })
+        }
       } else {
         await tx.tag.upsert({
-          where: { label: tag.label },
+          where: { id: tag.id },
           update: {},
           create: { id: tag.id, label: tag.label, category: tag.category, polarity: tag.polarity ?? undefined, isPreset: false, userId },
         })

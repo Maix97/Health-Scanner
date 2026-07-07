@@ -10,10 +10,9 @@ const ADDED_PRESETS: { label: string; category: 'QUICK_TOGGLE' | 'FOOD' | 'EXERC
 
 export async function ensurePresets(): Promise<void> {
   for (const preset of ADDED_PRESETS) {
-    await prisma.tag.upsert({
-      where: { label: preset.label },
-      update: {},
-      create: { label: preset.label, category: preset.category, isPreset: true },
-    })
+    const existing = await prisma.tag.findFirst({ where: { label: preset.label, isPreset: true } })
+    if (!existing) {
+      await prisma.tag.create({ data: { label: preset.label, category: preset.category, isPreset: true } })
+    }
   }
 }
