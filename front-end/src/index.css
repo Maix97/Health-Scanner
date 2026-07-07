@@ -5,42 +5,92 @@ body {
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* ── Custom palette ─────────────────────────────────────────────────── */
+@theme {
+  /* White → ash-grey-50 so card surfaces have a warm tinted feel     */
+  --color-white: #f1f4f4;
 
-/* Invert the slate scale so every bg-slate-* / text-slate-* / border-slate-*
-   utility automatically flips to its dark-mode equivalent. */
-.dark {
-  color-scheme: dark;
-  --color-slate-50:  oklch(20.8% .042 265.755);
-  --color-slate-100: oklch(27.9% .041 260.031);
-  --color-slate-200: oklch(37.2% .044 257.287);
-  --color-slate-300: oklch(44.6% .043 257.281);
-  --color-slate-400: oklch(55.4% .046 257.417);
-  --color-slate-500: oklch(70.4% .040 256.788);
-  --color-slate-600: oklch(86.9% .022 252.894);
-  --color-slate-700: oklch(92.9% .013 255.508);
-  --color-slate-800: oklch(96.8% .007 247.896);
-  --color-slate-900: oklch(98.4% .003 247.858);
+  /* Slate → ash-grey (teal-tinted neutral)                            */
+  --color-slate-50:  #f1f4f4;
+  --color-slate-100: #e2e9e9;
+  --color-slate-200: #c5d3d3;
+  --color-slate-300: #a9bcbc;
+  --color-slate-400: #8ca6a6;
+  --color-slate-500: #6f9090;
+  --color-slate-600: #597373;
+  --color-slate-700: #435656;
+  --color-slate-800: #2c3a3a;
+  --color-slate-900: #161d1d;
+
+  /* Emerald → frosted-mint                                            */
+  --color-emerald-50:  #ebffe5;
+  --color-emerald-100: #d7ffcc;
+  --color-emerald-200: #afff99;
+  --color-emerald-500: #37ff00;
+  --color-emerald-600: #2ccc00;
+  --color-emerald-700: #219900;
+  --color-emerald-800: #166600;
+
+  /* Violet → vintage-grape                                            */
+  --color-violet-50:  #f4f0f4;
+  --color-violet-100: #e8e2e9;
+  --color-violet-200: #d2c4d4;
+  --color-violet-500: #8e6c93;
+  --color-violet-600: #725775;
+  --color-violet-700: #554158;
+  --color-violet-800: #392b3b;
+  --color-violet-900: #1c161d;
+
+  /* Rose → coffee-bean (negative outcomes / bad-sleep indicator)      */
+  --color-rose-50:  #fde7f1;
+  --color-rose-100: #fbd0e3;
+  --color-rose-300: #f471ac;
+  --color-rose-400: #f04290;
+  --color-rose-500: #ec1375;
+  --color-rose-600: #bd0f5d;
+  --color-rose-700: #8e0b46;
+
+  /* Red → coffee-bean (delete / danger actions)                       */
+  --color-red-400: #f04290;
+  --color-red-500: #ec1375;
+  --color-red-600: #bd0f5d;
+  --color-red-700: #8e0b46;
 }
 
-/* bg-white cards become an elevated dark surface.
-   --color-white stays #fff so text-white on buttons keeps working. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Dark mode ─────────────────────────────────────────────────────── */
+/* Invert the ash-grey scale. Starting from 950 for maximum depth.     */
+.dark {
+  color-scheme: dark;
+  --color-slate-50:  #101414;
+  --color-slate-100: #161d1d;
+  --color-slate-200: #2c3a3a;
+  --color-slate-300: #435656;
+  --color-slate-400: #597373;
+  --color-slate-500: #6f9090;
+  --color-slate-600: #8ca6a6;
+  --color-slate-700: #a9bcbc;
+  --color-slate-800: #c5d3d3;
+  --color-slate-900: #e2e9e9;
+}
+
+/* bg-white cards become an elevated dark surface.                     */
 .dark .bg-white {
   background-color: var(--color-slate-100);
 }
 
-/* Active/selected elements use bg-slate-900 text-white — keep them dark
-   even though --color-slate-900 is now near-white. */
-.dark .bg-slate-900 { background-color: oklch(20.8% .042 265.755); }
-.dark .bg-slate-800 { background-color: oklch(27.9% .041 260.031); }
+/* Active/selected states (bg-slate-900 text-white) must stay dark     */
+.dark .bg-slate-900 { background-color: #2c3a3a; }
+.dark .bg-slate-800 { background-color: #435656; }
 
-/* Hover on dark buttons (hover:bg-slate-700 on bg-slate-900 buttons) */
+/* Hover on dark buttons */
 @media (hover: hover) {
-  .dark .hover\:bg-slate-700:hover { background-color: oklch(37.2% .044 257.287); }
-  .dark .hover\:bg-slate-600:hover { background-color: oklch(44.6% .043 257.281); }
+  .dark .hover\:bg-slate-700:hover { background-color: #435656; }
+  .dark .hover\:bg-slate-600:hover { background-color: #597373; }
 }
 
 /* Placeholder text on inputs */
 .dark .placeholder-slate-300::placeholder {
-  color: oklch(55.4% .046 257.417);
+  color: #6f9090;
 }
