@@ -133,7 +133,6 @@ export default function MoodChart({ data, show, onDayClick }: MoodChartProps) {
               dot={<MoodDot />}
               activeDot={{ r: 8, style: { cursor: 'pointer' }, onClick: (_e: any, p: any) => onDayClick?.(p.payload.date) }}
               connectNulls
-              isAnimationActive={false}
             />
           )}
           {show.energy && (
@@ -147,7 +146,6 @@ export default function MoodChart({ data, show, onDayClick }: MoodChartProps) {
               dot={<EnergyDot />}
               activeDot={{ r: 8, style: { cursor: 'pointer' }, onClick: (_e: any, p: any) => onDayClick?.(p.payload.date) }}
               connectNulls
-              isAnimationActive={false}
             />
           )}
           {show.sleep && (
@@ -161,7 +159,6 @@ export default function MoodChart({ data, show, onDayClick }: MoodChartProps) {
               dot={<SleepDot />}
               activeDot={{ r: 8, style: { cursor: 'pointer' }, onClick: (_e: any, p: any) => onDayClick?.(p.payload.date) }}
               connectNulls
-              isAnimationActive={false}
             />
           )}
           {/* Invisible line so recharts renders the right Y-axis */}
