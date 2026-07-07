@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchConfig } from '../api/config'
 import { fetchExportData, importData } from '../api/export'
 import { useDeleteTag, useTags } from '../hooks/useTags'
+import { getTheme, setTheme, type Theme } from '../hooks/useTheme'
 import type { Tag } from '../types'
 
 function TagDeleteChip({ tag, onRequestDelete }: { tag: Tag; onRequestDelete: (tag: Tag) => void }) {
@@ -35,6 +36,12 @@ function TagGroup({ title, tags, onRequestDelete }: { title: string; tags: Tag[]
   )
 }
 
+const THEME_OPTIONS: { value: Theme; label: string }[] = [
+  { value: 'light', label: 'Light' },
+  { value: 'system', label: 'System' },
+  { value: 'dark', label: 'Dark' },
+]
+
 export default function Settings() {
   const { data: config } = useQuery({ queryKey: ['config'], queryFn: fetchConfig })
   const queryClient = useQueryClient()
@@ -42,6 +49,12 @@ export default function Settings() {
   const [status, setStatus] = useState<string | null>(null)
   const [pendingImport, setPendingImport] = useState<Record<string, unknown> | null>(null)
   const [pendingDeleteTag, setPendingDeleteTag] = useState<Tag | null>(null)
+  const [currentTheme, setCurrentTheme] = useState<Theme>(getTheme)
+
+  function handleThemeChange(t: Theme) {
+    setTheme(t)
+    setCurrentTheme(t)
+  }
 
   const { data: feelingTags = [] } = useTags('FEELING')
   const { data: quickToggleTags = [] } = useTags('QUICK_TOGGLE')
@@ -105,6 +118,26 @@ export default function Settings() {
     <div>
       <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
       <p className="mt-1 text-slate-500">Backup your data and check configuration. Everything is stored locally for now.</p>
+
+      <section className="mt-6">
+        <h2 className="mb-2 text-sm font-semibold text-slate-700">Appearance</h2>
+        <div className="inline-flex gap-0.5 rounded-md border border-slate-200 p-0.5">
+          {THEME_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => handleThemeChange(opt.value)}
+              className={`rounded px-3 py-1.5 text-sm font-medium capitalize transition-colors ${
+                currentTheme === opt.value
+                  ? 'bg-slate-900 text-white'
+                  : 'text-slate-500 hover:bg-slate-100'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className="mt-6">
         <h2 className="mb-2 text-sm font-semibold text-slate-700">Backup</h2>

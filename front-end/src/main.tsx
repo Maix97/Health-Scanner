@@ -4,6 +4,10 @@ import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import App from './App.tsx'
+import { applyStoredTheme } from './hooks/useTheme'
+
+// Apply stored theme before React renders to prevent flash of wrong theme.
+applyStoredTheme()
 
 const queryClient = new QueryClient({
   defaultOptions: {

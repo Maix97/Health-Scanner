@@ -4,3 +4,43 @@ body {
   margin: 0;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Invert the slate scale so every bg-slate-* / text-slate-* / border-slate-*
+   utility automatically flips to its dark-mode equivalent. */
+.dark {
+  color-scheme: dark;
+  --color-slate-50:  oklch(20.8% .042 265.755);
+  --color-slate-100: oklch(27.9% .041 260.031);
+  --color-slate-200: oklch(37.2% .044 257.287);
+  --color-slate-300: oklch(44.6% .043 257.281);
+  --color-slate-400: oklch(55.4% .046 257.417);
+  --color-slate-500: oklch(70.4% .040 256.788);
+  --color-slate-600: oklch(86.9% .022 252.894);
+  --color-slate-700: oklch(92.9% .013 255.508);
+  --color-slate-800: oklch(96.8% .007 247.896);
+  --color-slate-900: oklch(98.4% .003 247.858);
+}
+
+/* bg-white cards become an elevated dark surface.
+   --color-white stays #fff so text-white on buttons keeps working. */
+.dark .bg-white {
+  background-color: var(--color-slate-100);
+}
+
+/* Active/selected elements use bg-slate-900 text-white — keep them dark
+   even though --color-slate-900 is now near-white. */
+.dark .bg-slate-900 { background-color: oklch(20.8% .042 265.755); }
+.dark .bg-slate-800 { background-color: oklch(27.9% .041 260.031); }
+
+/* Hover on dark buttons (hover:bg-slate-700 on bg-slate-900 buttons) */
+@media (hover: hover) {
+  .dark .hover\:bg-slate-700:hover { background-color: oklch(37.2% .044 257.287); }
+  .dark .hover\:bg-slate-600:hover { background-color: oklch(44.6% .043 257.281); }
+}
+
+/* Placeholder text on inputs */
+.dark .placeholder-slate-300::placeholder {
+  color: oklch(55.4% .046 257.417);
+}

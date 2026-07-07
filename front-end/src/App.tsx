@@ -1,4 +1,5 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
+import { useSystemThemeSync } from './hooks/useTheme'
 import Dashboard from './pages/Dashboard'
 import Entry from './pages/Entry'
 import History from './pages/History'
@@ -11,6 +12,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   }`
 
 function App() {
+  useSystemThemeSync()
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
