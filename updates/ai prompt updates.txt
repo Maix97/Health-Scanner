@@ -1,0 +1,87 @@
+'You are a health-pattern analyst reviewing a personal health tracker. Your job is to surface what is SPECIFIC and ACTIONABLE for this person — not generic health advice.',
+      '',
+      'COMMON KNOWLEDGE TO IGNORE (do not state these as insights):',
+      '- Generic "food causes heartburn" — too vague to be useful. BUT: if the data shows a SPECIFIC item (e.g. junk food, pizza, sweets, coffee, alcohol) correlates with heartburn, that IS worth surfacing — the value is the specificity.',
+      '- Sugar and carbs cause energy crashes — expected.',
+      '- Poor sleep causes tiredness — expected.',
+      '- Travel and work cause stress — expected.',
+      '- Exercise can cause tiredness — expected.',
+      '- Night flights or late nights cause poor sleep — expected.',
+      '- Alcohol disrupts sleep — expected.',
+      '- Taking a nap during the day means the person was already tired — the nap is a symptom, not a cause.',
+      '- Taking medication implies the person was already unwell — do not treat medication as causing symptoms.',
+      '- Feeling tired after a long or physically demanding day — expected.',
+      '- Any situation where the "input" is clearly a response to already feeling bad, not the cause of it.',
+
+      these what we haevf in insights 
+      these should still be taken into account for example i want to know if alcohol disrupts sleep , and if exercise would have tiredness it can be still caught in the data but not stuff like having a night flight where you cant sleep because of the flight not because of habits is bad.
+      this project should track habits not that if there is an earthquake then yes i am stressed or whatver just a far example but maybe you understan
+
+
+
+
+
+
+....................----------------
+
+
+
+Task: Redesign the Insights page for visual clarity.
+Current problem: Insights is a flat wall of near-identical text cards, hard to scan, no visual hierarchy, positive/negative mixed together.
+Redesign:
+1. Two-column layout (or stacked sections on mobile):
+
+"Helping you" (green) — factors linked to positive outcomes
+"Hurting you" (red) — factors linked to negative symptoms
+
+2. Group by trigger, one card per factor:
+
+Card header: factor name + icon/emoji (🍬 Sweets, 🥪 Sandwich)
+Inside: its linked symptoms as compact rows, each with a small horizontal bar comparing "with vs without" rates (e.g., two mini bars: 75% vs 13%) instead of text percentages
+Badge on each card: Strong / Tentative / Confounded (color-coded: solid, outlined, gray)
+
+3. Visual comparison bars:
+
+Each pattern row: symptom name, then two thin horizontal bars — colored bar for "days with factor", gray bar for "days without", with % labels. This makes the size of the effect instantly visible.
+
+4. Summary strip at top:
+
+2-3 headline findings as large simple statements, e.g. "🍬 Sweets → heartburn on 75% of days" with a small trend arrow
+AI summary collapsed into an expandable "Full AI analysis" panel below, rendered with proper formatting (not raw bullets)
+
+5. Reduce noise:
+
+Show top 5 cards per column, "Show all" expander for the rest
+Confounded patterns collapsed into one card: "⚠️ Can't separate yet: vegetables + minced meat always eaten together"
+Empty state per column if no patterns: "Not enough data yet — keep logging"
+
+----
+dashboard graph shows average energy, mood, sleep, 
+(when 7d selected for that 14 for that and so on), also shows % up/down from last 7d/14d/month 
+(so for example last 7 days compares to the 7 days before that)
+----
+
+Task: Add lagged and rolling-window exposure analysis to the insights pipeline.
+Context: TypeScript/Node + React health tracker. Current pattern detection compares exposures (foods/toggles) to symptoms on the same day or next morning, using Fisher's exact test + Benjamini-Hochberg correction (pure TS). Some factors (alcohol, poor sleep, late screen time) affect symptoms for multiple days — these are currently missed.
+1. Rolling-window exposures (primary approach)
+
+Define a config list of "laggy" factors, e.g. LAGGY_FACTORS = [{ tag: 'alcohol', windowDays: 3 }, { tag: 'late screen time', windowDays: 2 }, { tag: 'poor sleep' (sleep score ≤ 4), windowDays: 2 }]
+For each, generate a derived binary exposure per day: "X within last N days" (true if the factor appears on any of the previous N days, excluding same-day to keep it distinct from existing same-day patterns).
+Run these derived exposures through the existing Fisher + BH pipeline exactly like foods.
+Label results clearly, e.g. "Alcohol in the past 3 days → tired: 80% vs 25% (n=5)".
+
+2. Per-lag analysis (secondary, only for the laggy factors)
+
+For each laggy factor, also compute separate 2×2 tables at lag +1, +2, +3 days.
+Report only the strongest significant lag, phrased like "strongest 2 days after".
+Include all these extra tests in the BH correction pool so false positives stay controlled.
+
+3. Guardrails
+
+Skip any lag/window pattern with < 3 exposure days; keep "tentative" badge until ≥ 8.
+Don't lag every food — only the configured laggy factors, to limit the multiple-testing explosion.
+Make the config user-extensible later (store in settings), but hardcode the initial list for now.
+
+4. UI
+
+These patterns go into the existing Helping/Hurting columns, with a small "⏱ delayed effect" badge and the window/lag in the text.
