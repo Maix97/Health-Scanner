@@ -9,7 +9,7 @@ interface FoodTagDropdownProps {
   onToggleParent: () => void
   onToggleChild: (id: string) => void
   onIntensityChange: (tagId: string, value: number | undefined) => void
-  onAddChild: (label: string) => void
+  onAddChild: (label: string) => Promise<void>
 }
 
 export default function FoodTagDropdown({
@@ -24,6 +24,7 @@ export default function FoodTagDropdown({
 }: FoodTagDropdownProps) {
   const [open, setOpen] = useState(false)
   const [newLabel, setNewLabel] = useState('')
+  const [addError, setAddError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   const isParentSelected = selectedFoodIds.includes(tag.id)
@@ -50,11 +51,16 @@ export default function FoodTagDropdown({
     setOpen((v) => !v)
   }
 
-  function submitNewChild() {
+  async function submitNewChild() {
     const trimmed = newLabel.trim()
     if (!trimmed) return
-    onAddChild(trimmed)
-    setNewLabel('')
+    setAddError(null)
+    try {
+      await onAddChild(trimmed)
+      setNewLabel('')
+    } catch {
+      setAddError('Failed to add — try signing out and back in.')
+    }
   }
 
   return (
@@ -167,7 +173,7 @@ export default function FoodTagDropdown({
           <input
             type="text"
             value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
+            onChange={(e) => { setNewLabel(e.target.value); setAddError(null) }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault()
@@ -177,6 +183,7 @@ export default function FoodTagDropdown({
             placeholder="add option..."
             className="w-full rounded-lg px-2 py-1 text-xs text-slate-500 placeholder-slate-300 outline-none focus:bg-slate-50"
           />
+          {addError && <p className="mt-1 text-[10px] text-rose-500">{addError}</p>}
         </div>
       </div>
     </div>
