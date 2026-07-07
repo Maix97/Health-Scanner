@@ -10,16 +10,16 @@ import Login from './pages/Login'
 import Settings from './pages/Settings'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `shrink-0 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
+  `shrink-0 px-2 py-1.5 sm:px-3 sm:py-2 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap ${
     isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
   }`
 
-const NAV_LINKS = [
+const NAV_LINKS: { to: string; label: string; shortLabel?: string; end?: boolean }[] = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/history', label: 'History' },
   { to: '/insights', label: 'Insights' },
   { to: '/settings', label: 'Settings' },
-  { to: '/entry', label: '+ Add entry' },
+  { to: '/entry', label: '+ Add entry', shortLabel: '+ Add' },
 ]
 
 function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSignOut: () => void }) {
@@ -29,14 +29,21 @@ function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSign
         <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-3">
           <span className="shrink-0 text-lg font-bold text-slate-900 mr-2">Health Scanner</span>
 
-          {/* Nav — scrolls horizontally on narrow screens, visible at all widths */}
-          <nav className="flex overflow-x-auto gap-1 flex-1 min-w-0 scrollbar-none">
-            {NAV_LINKS.map(({ to, label, end }) => (
-              <NavLink key={to} to={to} className={navLinkClass} end={end}>
-                {label}
-              </NavLink>
-            ))}
-          </nav>
+          {/* Nav — always visible; compact on narrow windows */}
+          <div className="relative flex-1 min-w-0">
+            <nav className="flex overflow-x-auto gap-1 scrollbar-none">
+              {NAV_LINKS.map(({ to, label, shortLabel, end }) => (
+                <NavLink key={to} to={to} className={navLinkClass} end={end}>
+                  {shortLabel ? (
+                    <>
+                      <span className="sm:hidden">{shortLabel}</span>
+                      <span className="hidden sm:inline">{label}</span>
+                    </>
+                  ) : label}
+                </NavLink>
+              ))}
+            </nav>
+          </div>
 
           {/* Email + sign out — email hides below sm */}
           <div className="flex shrink-0 items-center gap-2">
@@ -44,7 +51,7 @@ function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSign
             <button
               type="button"
               onClick={onSignOut}
-              className="rounded-md px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              className="rounded-md px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
             >
               Sign out
             </button>
