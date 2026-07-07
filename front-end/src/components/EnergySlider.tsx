@@ -18,12 +18,15 @@ export default function EnergySlider({ value, onChange }: EnergySliderProps) {
               key={n}
               type="button"
               onClick={() => onChange(value === n ? null : n)}
-              style={{ backgroundColor: energyColor(n) }}
-              className={`flex-1 rounded-md py-2 text-sm font-semibold text-white transition ${
-                selected ? 'scale-110 ring-2 ring-slate-900 ring-offset-1' : 'opacity-50 hover:opacity-90'
+              className={`relative flex-1 overflow-hidden rounded-md py-2 text-sm font-semibold text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.6)] transition ${
+                selected ? 'scale-110 ring-2 ring-slate-900 ring-offset-1' : 'hover:opacity-90'
               }`}
             >
-              {n}
+              <span
+                className="pointer-events-none absolute inset-0"
+                style={{ backgroundColor: energyColor(n), opacity: selected ? 1 : 0.55 }}
+              />
+              <span className="relative">{n}</span>
             </button>
           )
         })}
