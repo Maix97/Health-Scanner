@@ -5,6 +5,19 @@ body {
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* ── Mobile / iOS fixes ─────────────────────────────────────────────── */
+/* Prevent iOS Safari from zooming inputs by ensuring ≥16px font size   */
+input, textarea, select {
+  font-size: max(16px, 1rem);
+}
+
+/* Tailwind's min-h-screen falls back to 100vh which doesn't account    */
+/* for iOS browser chrome. Use dvh where supported.                      */
+.min-h-dvh {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
 /* ── Custom palette ─────────────────────────────────────────────────── */
 @theme {
   /* Slate → ash-grey (teal-tinted neutral)                            */

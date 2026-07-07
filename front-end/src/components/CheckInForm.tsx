@@ -511,7 +511,7 @@ export default function CheckInForm({
 
       {pendingConflict && pendingConflict.timePeriod && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/30">
-          <div className="w-80 rounded-md bg-white p-4 shadow-lg">
+          <div className="mx-4 w-full max-w-xs rounded-md bg-white p-4 shadow-lg">
             <p className="text-sm font-medium text-slate-900">
               You already have an entry for {periodLabel(pendingConflict.timePeriod)} on this day.
             </p>

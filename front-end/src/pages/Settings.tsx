@@ -271,7 +271,7 @@ export default function Settings() {
 
       {pendingImport && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/30">
-          <div className="w-80 rounded-md bg-white p-4 shadow-lg">
+          <div className="mx-4 w-full max-w-xs rounded-md bg-white p-4 shadow-lg">
             <p className="text-sm font-medium text-slate-900">Replace all local data?</p>
             <p className="mt-1 text-sm text-slate-600">
               This will delete every check-in and tag currently stored and replace them with the contents of the imported file. This cannot be undone.
@@ -298,7 +298,7 @@ export default function Settings() {
 
       {pendingDeleteTag && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/30">
-          <div className="w-80 rounded-md bg-white p-4 shadow-lg">
+          <div className="mx-4 w-full max-w-xs rounded-md bg-white p-4 shadow-lg">
             <p className="text-sm font-medium text-slate-900">Delete "{pendingDeleteTag.label}"?</p>
             <p className="mt-1 text-sm text-slate-600">
               This removes it from any check-ins that have it. This cannot be undone.

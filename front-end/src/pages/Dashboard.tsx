@@ -153,10 +153,10 @@ export default function Dashboard() {
       </div>
 
       <section className="mt-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-sm font-semibold text-slate-700">Trends</h2>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               {SERIES.map(({ key, label, color }) => (
                 <label key={key} className="flex cursor-pointer items-center gap-1.5 select-none">
                   <input
@@ -166,7 +166,7 @@ export default function Dashboard() {
                     className="sr-only"
                   />
                   <span
-                    className={`flex h-4 w-4 items-center justify-center rounded border-2 transition-colors ${
+                    className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-colors ${
                       show[key] ? 'border-transparent' : 'border-slate-300 bg-white'
                     }`}
                     style={show[key] ? { backgroundColor: color } : {}}
@@ -188,7 +188,7 @@ export default function Dashboard() {
                 key={option}
                 type="button"
                 onClick={() => setDays(option)}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium ${
+                className={`rounded-md px-3 py-1.5 text-xs font-medium ${
                   days === option ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'
                 }`}
               >
