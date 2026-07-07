@@ -58,13 +58,16 @@ function App() {
               + Add entry
             </NavLink>
           </nav>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="ml-2 rounded-md px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-          >
-            Sign out
-          </button>
+          <div className="ml-2 flex items-center gap-2">
+            <span className="hidden text-sm text-slate-400 sm:block">{user.email}</span>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="rounded-md px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-4 py-6">

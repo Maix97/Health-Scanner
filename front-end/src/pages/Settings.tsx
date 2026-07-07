@@ -1,10 +1,83 @@
-import { useRef, useState, type ChangeEvent } from 'react'
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchConfig } from '../api/config'
 import { fetchExportData, importData } from '../api/export'
 import { useDeleteTag, useTags } from '../hooks/useTags'
 import { getTheme, setTheme, type Theme } from '../hooks/useTheme'
+import { supabase } from '../lib/supabase'
 import type { Tag } from '../types'
+
+function ChangePasswordSection() {
+  const [newPassword, setNewPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [status, setStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (newPassword !== confirm) {
+      setStatus({ type: 'error', msg: 'Passwords do not match.' })
+      return
+    }
+    if (newPassword.length < 6) {
+      setStatus({ type: 'error', msg: 'Password must be at least 6 characters.' })
+      return
+    }
+    setLoading(true)
+    setStatus(null)
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    setLoading(false)
+    if (error) {
+      setStatus({ type: 'error', msg: error.message })
+    } else {
+      setStatus({ type: 'success', msg: 'Password updated.' })
+      setNewPassword('')
+      setConfirm('')
+    }
+  }
+
+  return (
+    <section className="mt-8">
+      <h2 className="mb-2 text-sm font-semibold text-slate-700">Change password</h2>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-slate-500" htmlFor="new-pw">New password</label>
+          <input
+            id="new-pw"
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="Min 6 characters"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-slate-500" htmlFor="confirm-pw">Confirm</label>
+          <input
+            id="confirm-pw"
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            placeholder="Repeat password"
+            className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={loading || !newPassword || !confirm}
+          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+        >
+          {loading ? 'Saving...' : 'Update'}
+        </button>
+      </form>
+      {status && (
+        <p className={`mt-2 text-sm ${status.type === 'success' ? 'text-emerald-600' : 'text-rose-600'}`}>
+          {status.msg}
+        </p>
+      )}
+    </section>
+  )
+}
 
 function TagDeleteChip({ tag, onRequestDelete }: { tag: Tag; onRequestDelete: (tag: Tag) => void }) {
   return (
@@ -182,6 +255,8 @@ export default function Settings() {
           <TagGroup title="Food" tags={foodTags.filter((t) => !t.parentTagId)} onRequestDelete={setPendingDeleteTag} />
         </div>
       </section>
+
+      <ChangePasswordSection />
 
       <section className="mt-8">
         <h2 className="mb-2 text-sm font-semibold text-slate-700">Claude configuration</h2>
