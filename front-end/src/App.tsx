@@ -30,7 +30,7 @@ function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSign
           <span className="shrink-0 text-lg font-bold text-slate-900 mr-2">Health Scanner</span>
 
           {/* Nav — scrolls horizontally on narrow screens, visible at all widths */}
-          <nav className="flex overflow-x-auto gap-1 flex-1 scrollbar-none">
+          <nav className="flex overflow-x-auto gap-1 flex-1 min-w-0 scrollbar-none">
             {NAV_LINKS.map(({ to, label, end }) => (
               <NavLink key={to} to={to} className={navLinkClass} end={end}>
                 {label}
