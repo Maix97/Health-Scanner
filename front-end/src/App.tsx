@@ -9,16 +9,21 @@ import Insights from './pages/Insights'
 import Login from './pages/Login'
 import Settings from './pages/Settings'
 
-const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+const desktopNavClass = ({ isActive }: { isActive: boolean }) =>
   `shrink-0 px-2 py-1.5 sm:px-3 sm:py-2 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap ${
     isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
   }`
 
-const NAV_LINKS: { to: string; label: string; shortLabel?: string; end?: boolean }[] = [
-  { to: '/', label: 'Dashboard', end: true },
-  { to: '/history', label: 'History' },
-  { to: '/insights', label: 'Insights' },
-  { to: '/settings', label: 'Settings' },
+const mobileNavClass = ({ isActive }: { isActive: boolean }) =>
+  `flex-1 py-2 text-center text-xs font-medium rounded-md ${
+    isActive ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-100'
+  }`
+
+const NAV_LINKS: { to: string; label: string; shortLabel: string; end?: boolean }[] = [
+  { to: '/', label: 'Dashboard', shortLabel: 'Home', end: true },
+  { to: '/history', label: 'History', shortLabel: 'History' },
+  { to: '/insights', label: 'Insights', shortLabel: 'Insights' },
+  { to: '/settings', label: 'Settings', shortLabel: 'Settings' },
   { to: '/entry', label: '+ Add entry', shortLabel: '+ Add' },
 ]
 
@@ -26,27 +31,23 @@ function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSign
   return (
     <div className="min-h-screen min-h-dvh bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
+        {/* Top bar: logo + desktop nav + email + sign out */}
         <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-3">
-          <span className="shrink-0 text-lg font-bold text-slate-900 mr-2">Health Scanner</span>
+          <span className="shrink-0 text-base sm:text-lg font-bold text-slate-900 mr-2">Health Scanner</span>
 
-          {/* Nav — always visible; compact on narrow windows */}
-          <div className="relative flex-1 min-w-0">
+          {/* Desktop nav (hidden on mobile) */}
+          <div className="hidden sm:flex relative flex-1 min-w-0">
             <nav className="flex overflow-x-auto gap-1 scrollbar-none">
-              {NAV_LINKS.map(({ to, label, shortLabel, end }) => (
-                <NavLink key={to} to={to} className={navLinkClass} end={end}>
-                  {shortLabel ? (
-                    <>
-                      <span className="sm:hidden">{shortLabel}</span>
-                      <span className="hidden sm:inline">{label}</span>
-                    </>
-                  ) : label}
+              {NAV_LINKS.map(({ to, label, end }) => (
+                <NavLink key={to} to={to} className={desktopNavClass} end={end}>
+                  {label}
                 </NavLink>
               ))}
             </nav>
           </div>
 
-          {/* Email + sign out — email hides below sm */}
-          <div className="flex shrink-0 items-center gap-2">
+          {/* Email + sign out */}
+          <div className="flex shrink-0 items-center gap-2 ml-auto sm:ml-0">
             <span className="hidden sm:block text-sm text-slate-400 max-w-[160px] truncate">{user.email}</span>
             <button
               type="button"
@@ -57,6 +58,15 @@ function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSign
             </button>
           </div>
         </div>
+
+        {/* Mobile nav: full-width 5-column grid (hidden on sm+) */}
+        <nav className="sm:hidden flex border-t border-slate-100 px-2 pb-2 gap-1">
+          {NAV_LINKS.map(({ to, shortLabel, end }) => (
+            <NavLink key={to} to={to} className={mobileNavClass} end={end}>
+              {shortLabel}
+            </NavLink>
+          ))}
+        </nav>
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-6">
