@@ -47,7 +47,7 @@ function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSign
     <div className="min-h-screen min-h-dvh bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
         {/* Top bar */}
-        <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
+        <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-3">
           <span className="text-lg font-bold text-slate-900 mr-2">Health Scanner</span>
 
           {/* Desktop nav */}
@@ -95,7 +95,7 @@ function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSign
         {/* Mobile dropdown */}
         {menuOpen && (
           <div className="border-t border-slate-100 lg:hidden">
-            <nav className="mx-auto max-w-3xl px-4 py-2 flex flex-col gap-0.5">
+            <nav className="mx-auto max-w-5xl px-4 py-2 flex flex-col gap-0.5">
               {NAV_LINKS.map(({ to, label, end }) => (
                 <NavLink key={to} to={to} className={navLinkClass} end={end} onClick={handleNavClick}>
                   {label}
