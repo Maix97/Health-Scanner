@@ -107,6 +107,10 @@ export interface CorrelationFinding {
     isolatedDays: number
     isolatedRate: number | null
   }
+  lagged?: {
+    windowDays: number
+    bestLag?: number
+  }
   context?: string
 }
 

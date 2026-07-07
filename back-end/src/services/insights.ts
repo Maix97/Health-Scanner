@@ -4,6 +4,7 @@ import { getClaudeClient, CLAUDE_MODEL } from './claude.js'
 import { buildDayRecords, buildPeriodRecords } from './dayAggregation.js'
 import {
   computeCorrelations,
+  computeLaggedCorrelations,
   computeMoodImpacts,
   computePeriodCorrelations,
   computePeriodMoodImpacts,
@@ -72,6 +73,7 @@ export async function generateInsights(opts: { force?: boolean } = {}) {
   const moodFindings = computeMoodImpacts(days)
   const periodFindings = computePeriodCorrelations(periods)
   const periodMoodFindings = computePeriodMoodImpacts(periods)
+  const laggedFindings = computeLaggedCorrelations(days)
 
   const createdCorrelationInsights = [
     ...(await cacheFindings(findings, 'correlation', (f) => `${f.inputLabel}:${f.outcomeLabel}`, since, checkInCount)),
@@ -90,6 +92,7 @@ export async function generateInsights(opts: { force?: boolean } = {}) {
       since,
       checkInCount,
     )),
+    ...(await cacheFindings(laggedFindings, 'lagged', (f) => `${f.inputLabel}:${f.outcomeLabel}`, since, checkInCount)),
   ]
 
   const lastSummary = await prisma.insight.findFirst({
@@ -110,13 +113,14 @@ export async function generateInsights(opts: { force?: boolean } = {}) {
     }
   }
 
-  const allFindings = [...findings, ...periodFindings]
+  const allFindings = [...findings, ...periodFindings, ...laggedFindings]
 
   const allFindingSummaries = [
     ...findings.map((f) => f.summary),
     ...moodFindings.map((f) => f.summary),
     ...periodFindings.map((f) => f.summary),
     ...periodMoodFindings.map((f) => f.summary),
+    ...laggedFindings.map((f) => f.summary),
   ]
 
   if (allFindingSummaries.length === 0) {
@@ -245,6 +249,7 @@ export async function getPatterns() {
     correlations: [
       ...computeCorrelations(days),
       ...computePeriodCorrelations(periods),
+      ...computeLaggedCorrelations(days),
     ],
     moodImpacts: [
       ...computeMoodImpacts(days),

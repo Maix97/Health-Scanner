@@ -1,4 +1,4 @@
-import { nextDayKey, type CarryoverPeriod, type DayRecord, type PeriodRecord } from './dayAggregation.js'
+import { dayKey, nextDayKey, type CarryoverPeriod, type DayRecord, type PeriodRecord } from './dayAggregation.js'
 import { benjaminiHochberg, fisherExactPValue } from './stats.js'
 
 export const MIN_TOTAL_DAYS = 7
@@ -44,8 +44,26 @@ export interface CorrelationFinding {
     isolatedDays: number
     isolatedRate: number | null
   }
+  lagged?: {
+    windowDays: number
+    bestLag?: number
+  }
   context?: string
 }
+
+// Factors whose effects linger for multiple days. Only these get lagged analysis
+// to avoid inflating the multiple-testing pool with every possible food.
+export interface LaggyFactor {
+  tag: string
+  windowDays: number
+  isSleepBased?: boolean  // use sleepScore ≤ threshold instead of inputLabels
+}
+
+export const LAGGY_FACTORS: LaggyFactor[] = [
+  { tag: 'alcohol', windowDays: 3 },
+  { tag: 'late screen time', windowDays: 2 },
+  { tag: 'poor sleep', windowDays: 2, isSleepBased: true },
+]
 
 export interface MoodFinding {
   inputLabel: string
@@ -478,4 +496,172 @@ export function computePeriodMoodImpacts(periods: PeriodRecord[]): MoodFinding[]
   }
 
   return findings.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, MAX_FINDINGS)
+}
+
+// ─── Lagged / rolling-window analysis ────────────────────────────────────────
+
+function hasLaggyFactor(day: DayRecord, factor: LaggyFactor): boolean {
+  if (factor.isSleepBased) return day.sleepScore != null && day.sleepScore <= POOR_SLEEP_THRESHOLD
+  return day.inputLabels.has(factor.tag)
+}
+
+function buildLagExposures(
+  sortedDays: DayRecord[],
+  factor: LaggyFactor,
+): { rolling: Set<number>; perLag: Map<number, Set<number>> } {
+  const byDate = new Map<string, DayRecord>(sortedDays.map((d) => [d.date, d]))
+  const rolling = new Set<number>()
+  const perLag = new Map<number, Set<number>>()
+  for (let d = 1; d <= factor.windowDays; d++) perLag.set(d, new Set())
+
+  for (let i = 0; i < sortedDays.length; i++) {
+    const [yr, mo, dy] = sortedDays[i].date.split('-').map(Number)
+    for (let lag = 1; lag <= factor.windowDays; lag++) {
+      const prevKey = dayKey(new Date(yr, mo - 1, dy - lag))
+      const prev = byDate.get(prevKey)
+      if (prev && hasLaggyFactor(prev, factor)) {
+        rolling.add(i)
+        perLag.get(lag)!.add(i)
+      }
+    }
+  }
+  return { rolling, perLag }
+}
+
+export function computeLaggedCorrelations(days: DayRecord[]): CorrelationFinding[] {
+  if (days.length < MIN_TOTAL_DAYS) return []
+
+  const sortedDays = [...days].sort((a, b) => a.date.localeCompare(b.date))
+  const { minSample } = getThresholds(sortedDays.length)
+  const pThreshold = sortedDays.length >= 20 ? P_THRESHOLD_LARGE : P_THRESHOLD_SMALL
+
+  const positiveOutcomes = new Set<string>()
+  const outcomeLabels = new Set<string>([BAD_SLEEP_OUTCOME])
+  for (const day of sortedDays) {
+    for (const l of day.outcomeLabels) outcomeLabels.add(l)
+    for (const l of day.positiveOutcomeLabels) positiveOutcomes.add(l)
+  }
+
+  type LagCand = {
+    fi: number
+    outcomeLabel: string
+    a: number; b: number; c: number; dn: number
+    rateWith: number; rateWithout: number; lift: number
+    pValue: number; beneficial: boolean
+    isRolling: boolean
+    lag?: number
+  }
+  const candidates: LagCand[] = []
+
+  for (let fi = 0; fi < LAGGY_FACTORS.length; fi++) {
+    const factor = LAGGY_FACTORS[fi]
+    const { rolling, perLag } = buildLagExposures(sortedDays, factor)
+
+    const rollingDays = sortedDays.filter((_, i) => rolling.has(i))
+    const notRolling = sortedDays.filter((_, i) => !rolling.has(i))
+    if (rollingDays.length < minSample || notRolling.length < minSample) continue
+
+    for (const outcomeLabel of outcomeLabels) {
+      const isPositiveOutcome = positiveOutcomes.has(outcomeLabel)
+
+      const a = rollingDays.filter((d) => hasOutcome(d, outcomeLabel)).length
+      const b = rollingDays.length - a
+      const c = notRolling.filter((d) => hasOutcome(d, outcomeLabel)).length
+      const dn = notRolling.length - c
+      if (a === 0 && c === 0) continue
+
+      const rateWith = a / (a + b)
+      const rateWithout = c / (c + dn)
+      const lift = rateWith - rateWithout
+      const pUp = fisherExactPValue(a, b, c, dn)
+      const pDown = fisherExactPValue(c, dn, a, b)
+      const pValue = Math.min(1, 2 * Math.min(pUp, pDown))
+      const beneficial = outcomeLabel === BAD_SLEEP_OUTCOME ? lift < 0 : isPositiveOutcome ? lift > 0 : lift < 0
+
+      candidates.push({ fi, outcomeLabel, a, b, c, dn, rateWith, rateWithout, lift, pValue, beneficial, isRolling: true })
+
+      for (const [lag, lagSet] of perLag) {
+        if (lagSet.size < minSample) continue
+        const lagDays = sortedDays.filter((_, i) => lagSet.has(i))
+        const notLag = sortedDays.filter((_, i) => !lagSet.has(i))
+        if (notLag.length < minSample) continue
+
+        const a2 = lagDays.filter((d) => hasOutcome(d, outcomeLabel)).length
+        const b2 = lagDays.length - a2
+        const c2 = notLag.filter((d) => hasOutcome(d, outcomeLabel)).length
+        const dn2 = notLag.length - c2
+        if (a2 === 0 && c2 === 0) continue
+
+        const rWith2 = a2 / (a2 + b2)
+        const rWithout2 = c2 / (c2 + dn2)
+        const lift2 = rWith2 - rWithout2
+        const p2Up = fisherExactPValue(a2, b2, c2, dn2)
+        const p2Down = fisherExactPValue(c2, dn2, a2, b2)
+        const pVal2 = Math.min(1, 2 * Math.min(p2Up, p2Down))
+
+        candidates.push({ fi, outcomeLabel, a: a2, b: b2, c: c2, dn: dn2, rateWith: rWith2, rateWithout: rWithout2, lift: lift2, pValue: pVal2, beneficial, isRolling: false, lag })
+      }
+    }
+  }
+
+  if (candidates.length === 0) return []
+  const correctedPs = benjaminiHochberg(candidates.map((c) => c.pValue))
+
+  const findings: CorrelationFinding[] = []
+  const emitted = new Set<string>()
+
+  for (let fi = 0; fi < LAGGY_FACTORS.length; fi++) {
+    const factor = LAGGY_FACTORS[fi]
+
+    for (const outcomeLabel of outcomeLabels) {
+      const pairKey = `${fi}:${outcomeLabel}`
+      if (emitted.has(pairKey)) continue
+
+      const ri = candidates.findIndex((c, ci) => c.fi === fi && c.outcomeLabel === outcomeLabel && c.isRolling && correctedPs[ci] <= pThreshold)
+
+      let besti = -1
+      for (let ci = 0; ci < candidates.length; ci++) {
+        const c = candidates[ci]
+        if (c.fi !== fi || c.outcomeLabel !== outcomeLabel || c.isRolling) continue
+        if (correctedPs[ci] > pThreshold) continue
+        if (besti === -1 || correctedPs[ci] < correctedPs[besti]) besti = ci
+      }
+
+      const primaryIdx = ri !== -1 ? ri : besti
+      if (primaryIdx === -1) continue
+
+      const cand = candidates[primaryIdx]
+      const bestLag = besti !== -1 ? candidates[besti].lag : undefined
+
+      const withPct = Math.round(cand.rateWith * 100)
+      const withoutPct = Math.round(cand.rateWithout * 100)
+      const inputDesc = cand.isRolling
+        ? `${factor.tag} (past ${factor.windowDays}d)`
+        : `${factor.tag} (${cand.lag}d prior)`
+      let summary = `${inputDesc} → ${outcomeLabel}: ${withPct}% (n=${cand.a + cand.b}) vs ${withoutPct}% without (n=${cand.c + cand.dn}) — ${confidenceLabel(Math.min(cand.a + cand.b, cand.c + cand.dn))}.`
+      if (cand.isRolling && bestLag != null) summary += ` Strongest ${bestLag}d after.`
+
+      emitted.add(pairKey)
+      findings.push({
+        inputLabel: factor.tag,
+        outcomeLabel,
+        daysWithInput: cand.a + cand.b,
+        daysWithoutInput: cand.c + cand.dn,
+        rateWithInput: cand.rateWith,
+        rateWithoutInput: cand.rateWithout,
+        lift: cand.lift,
+        summary,
+        beneficial: cand.beneficial,
+        pValue: cand.pValue,
+        correctedPValue: correctedPs[primaryIdx],
+        tentative: (cand.a + cand.b) < TENTATIVE_EXPOSURE,
+        lagged: { windowDays: factor.windowDays, bestLag },
+        context: `lagged:${factor.windowDays}d`,
+      })
+    }
+  }
+
+  return findings
+    .sort((a, b) => Math.abs(b.lift) - Math.abs(a.lift))
+    .slice(0, MAX_FINDINGS)
 }
