@@ -51,7 +51,7 @@ function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSign
           <span className="text-lg font-bold text-slate-900 mr-2">Health Scanner</span>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex flex-1 flex-wrap gap-1">
+          <nav className="hidden lg:flex flex-1 flex-wrap gap-1">
             {NAV_LINKS.map(({ to, label, end }) => (
               <NavLink key={to} to={to} className={navLinkClass} end={end}>
                 {label}
@@ -60,7 +60,7 @@ function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSign
           </nav>
 
           {/* Desktop user info */}
-          <div className="hidden md:flex items-center gap-2 ml-auto">
+          <div className="hidden lg:flex items-center gap-2 ml-auto">
             <span className="text-sm text-slate-400 max-w-[180px] truncate">{user.email}</span>
             <button
               type="button"
@@ -72,7 +72,7 @@ function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSign
           </div>
 
           {/* Mobile: hamburger */}
-          <div className="flex md:hidden items-center gap-2 ml-auto">
+          <div className="flex lg:hidden items-center gap-2 ml-auto">
             <button
               type="button"
               onClick={onSignOut}
@@ -94,7 +94,7 @@ function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSign
 
         {/* Mobile dropdown */}
         {menuOpen && (
-          <div className="border-t border-slate-100 md:hidden">
+          <div className="border-t border-slate-100 lg:hidden">
             <nav className="mx-auto max-w-3xl px-4 py-2 flex flex-col gap-0.5">
               {NAV_LINKS.map(({ to, label, end }) => (
                 <NavLink key={to} to={to} className={navLinkClass} end={end} onClick={handleNavClick}>
