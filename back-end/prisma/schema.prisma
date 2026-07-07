@@ -69,7 +69,7 @@ model CheckIn {
 
 model Tag {
   id          String      @id @default(cuid())
-  label       String      @unique
+  label       String
   userId      String?
   category    TagCategory
   polarity    Polarity?

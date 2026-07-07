@@ -41,15 +41,21 @@ tagsRouter.post('/', async (req, res) => {
   }
 
   const label = parsed.data.label.toLowerCase()
+  const parentTagId = parsed.data.parentTagId ?? null
 
-  const tag = await prisma.tag.upsert({
-    where: { label },
-    update: {},
-    create: {
+  // Deduplicate per parent: same label under same parent returns the existing tag
+  const existing = await prisma.tag.findFirst({ where: { label, parentTagId } })
+  if (existing) {
+    res.status(201).json(existing)
+    return
+  }
+
+  const tag = await prisma.tag.create({
+    data: {
       label,
       category: parsed.data.category,
       polarity: parsed.data.polarity,
-      parentTagId: parsed.data.parentTagId,
+      parentTagId,
       isPreset: false,
       userId: req.userId,
     },
