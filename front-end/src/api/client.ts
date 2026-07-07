@@ -1,8 +1,16 @@
+import { supabase } from '../lib/supabase'
+
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+
   const res = await fetch(`${API_BASE}/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     ...init,
   })
 

@@ -5,15 +5,15 @@ import { generateInsights, getPatterns } from '../services/insights.js'
 
 export const insightsRouter = Router()
 
-insightsRouter.get('/patterns', async (_req, res) => {
-  const result = await getPatterns()
+insightsRouter.get('/patterns', async (req, res) => {
+  const result = await getPatterns(req.userId)
   res.json(result)
 })
 
 insightsRouter.get('/', async (req, res) => {
   const includeDismissed = req.query.includeDismissed === 'true'
   const insights = await prisma.insight.findMany({
-    where: includeDismissed ? undefined : { dismissed: false },
+    where: { userId: req.userId, ...(includeDismissed ? {} : { dismissed: false }) },
     orderBy: { generatedAt: 'desc' },
   })
   res.json(insights)
@@ -29,7 +29,7 @@ insightsRouter.post('/generate', async (req, res) => {
   }
 
   try {
-    const result = await generateInsights({ force: parsed.data.force })
+    const result = await generateInsights({ force: parsed.data.force, userId: req.userId })
     res.json(result)
   } catch (err) {
     res.status(502).json({ error: err instanceof Error ? err.message : 'Failed to generate insights' })
@@ -45,7 +45,7 @@ insightsRouter.patch('/:id', async (req, res) => {
     return
   }
 
-  const existing = await prisma.insight.findUnique({ where: { id: req.params.id } })
+  const existing = await prisma.insight.findFirst({ where: { id: req.params.id, userId: req.userId } })
   if (!existing) {
     res.status(404).json({ error: 'Insight not found' })
     return

@@ -7,6 +7,9 @@ export const tagsRouter = Router()
 const categorySchema = z.enum(['FEELING', 'QUICK_TOGGLE', 'EXERCISE', 'FOOD'])
 const polaritySchema = z.enum(['POSITIVE', 'NEGATIVE'])
 
+// Tags are global — presets (isPreset=true) are visible to everyone, custom tags
+// (isPreset=false) show to their creator and to all other users too so the tag
+// vocabulary is shared. userId on Tag tracks creator for deletion permission only.
 tagsRouter.get('/', async (req, res) => {
   const category = req.query.category
   const parsed = category ? categorySchema.safeParse(category) : undefined
@@ -48,6 +51,7 @@ tagsRouter.post('/', async (req, res) => {
       polarity: parsed.data.polarity,
       parentTagId: parsed.data.parentTagId,
       isPreset: false,
+      userId: req.userId,
     },
   })
 
@@ -58,6 +62,16 @@ tagsRouter.delete('/:id', async (req, res) => {
   const existing = await prisma.tag.findUnique({ where: { id: req.params.id } })
   if (!existing) {
     res.status(404).json({ error: 'Tag not found' })
+    return
+  }
+
+  if (existing.isPreset) {
+    res.status(403).json({ error: 'Cannot delete preset tags' })
+    return
+  }
+
+  if (existing.userId && existing.userId !== req.userId) {
+    res.status(403).json({ error: 'Cannot delete another user\'s tag' })
     return
   }
 

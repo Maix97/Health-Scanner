@@ -42,6 +42,7 @@ checkInsRouter.post('/', async (req, res) => {
   const checkIn = await prisma.checkIn.create({
     data: {
       ...rest,
+      userId: req.userId,
       occurredAt: occurredAt ? new Date(occurredAt) : undefined,
       tags: {
         create: tagIds.map((tagId) => ({ tagId, source: 'MANUAL' as const, intensity: tagIntensities[tagId] })),
@@ -84,6 +85,7 @@ checkInsRouter.get('/', async (req, res) => {
 
   const checkIns = await prisma.checkIn.findMany({
     where: {
+      userId: req.userId,
       occurredAt: {
         gte: from ? new Date(from) : undefined,
         lte: to ? new Date(to) : undefined,
@@ -99,8 +101,8 @@ checkInsRouter.get('/', async (req, res) => {
 })
 
 checkInsRouter.get('/:id', async (req, res) => {
-  const checkIn = await prisma.checkIn.findUnique({
-    where: { id: req.params.id },
+  const checkIn = await prisma.checkIn.findFirst({
+    where: { id: req.params.id, userId: req.userId },
     include: checkInInclude,
   })
 
@@ -119,7 +121,7 @@ checkInsRouter.patch('/:id', async (req, res) => {
     return
   }
 
-  const existing = await prisma.checkIn.findUnique({ where: { id: req.params.id } })
+  const existing = await prisma.checkIn.findFirst({ where: { id: req.params.id, userId: req.userId } })
   if (!existing) {
     res.status(404).json({ error: 'Check-in not found' })
     return
@@ -178,7 +180,7 @@ checkInsRouter.patch('/:id', async (req, res) => {
 })
 
 checkInsRouter.post('/:id/reprocess', async (req, res) => {
-  const existing = await prisma.checkIn.findUnique({ where: { id: req.params.id } })
+  const existing = await prisma.checkIn.findFirst({ where: { id: req.params.id, userId: req.userId } })
   if (!existing) {
     res.status(404).json({ error: 'Check-in not found' })
     return
@@ -199,7 +201,7 @@ checkInsRouter.post('/:id/reprocess', async (req, res) => {
 })
 
 checkInsRouter.delete('/:id', async (req, res) => {
-  const existing = await prisma.checkIn.findUnique({ where: { id: req.params.id } })
+  const existing = await prisma.checkIn.findFirst({ where: { id: req.params.id, userId: req.userId } })
   if (!existing) {
     res.status(404).json({ error: 'Check-in not found' })
     return

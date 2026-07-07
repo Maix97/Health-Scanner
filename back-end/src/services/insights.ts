@@ -23,25 +23,24 @@ interface Finding {
   summary: string
 }
 
-// Caches one Insight row per distinct finding (keyed by a hash prefix unique
-// to the finding kind), skipping ones already recorded — even if dismissed —
-// so a dismissed finding doesn't reappear on every regenerate.
 async function cacheFindings<T extends Finding>(
   findings: T[],
   hashPrefix: string,
   keyOf: (finding: T) => string,
   since: Date,
   checkInCount: number,
+  userId: string,
 ) {
   const created = []
   for (const finding of findings) {
     const inputHash = hash(`${hashPrefix}:${keyOf(finding)}`)
-    const existing = await prisma.insight.findFirst({ where: { kind: 'CORRELATION', inputHash } })
+    const existing = await prisma.insight.findFirst({ where: { kind: 'CORRELATION', inputHash, userId } })
     if (existing) continue
 
     created.push(
       await prisma.insight.create({
         data: {
+          userId,
           kind: 'CORRELATION',
           inputHash,
           content: finding.summary,
@@ -55,12 +54,13 @@ async function cacheFindings<T extends Finding>(
   return created
 }
 
-export async function generateInsights(opts: { force?: boolean } = {}) {
+export async function generateInsights(opts: { force?: boolean; userId: string }) {
+  const { userId } = opts
   const since = new Date()
   since.setDate(since.getDate() - LOOKBACK_DAYS)
 
   const checkIns = await prisma.checkIn.findMany({
-    where: { occurredAt: { gte: since } },
+    where: { userId, occurredAt: { gte: since } },
     include: { tags: { include: { tag: true } }, events: true },
     orderBy: { occurredAt: 'asc' },
   })
@@ -76,14 +76,15 @@ export async function generateInsights(opts: { force?: boolean } = {}) {
   const laggedFindings = computeLaggedCorrelations(days)
 
   const createdCorrelationInsights = [
-    ...(await cacheFindings(findings, 'correlation', (f) => `${f.inputLabel}:${f.outcomeLabel}`, since, checkInCount)),
-    ...(await cacheFindings(moodFindings, 'mood', (f) => f.inputLabel, since, checkInCount)),
+    ...(await cacheFindings(findings, 'correlation', (f) => `${f.inputLabel}:${f.outcomeLabel}`, since, checkInCount, userId)),
+    ...(await cacheFindings(moodFindings, 'mood', (f) => f.inputLabel, since, checkInCount, userId)),
     ...(await cacheFindings(
       periodFindings,
       'period-correlation',
       (f) => `${f.context}:${f.inputLabel}:${f.outcomeLabel}`,
       since,
       checkInCount,
+      userId,
     )),
     ...(await cacheFindings(
       periodMoodFindings,
@@ -91,12 +92,13 @@ export async function generateInsights(opts: { force?: boolean } = {}) {
       (f) => `${f.context}:${f.inputLabel}`,
       since,
       checkInCount,
+      userId,
     )),
-    ...(await cacheFindings(laggedFindings, 'lagged', (f) => `${f.inputLabel}:${f.outcomeLabel}`, since, checkInCount)),
+    ...(await cacheFindings(laggedFindings, 'lagged', (f) => `${f.inputLabel}:${f.outcomeLabel}`, since, checkInCount, userId)),
   ]
 
   const lastSummary = await prisma.insight.findFirst({
-    where: { kind: 'AI_SUMMARY' },
+    where: { kind: 'AI_SUMMARY', userId },
     orderBy: { generatedAt: 'desc' },
   })
 
@@ -215,6 +217,7 @@ export async function generateInsights(opts: { force?: boolean } = {}) {
 
   const aiSummary = await prisma.insight.create({
     data: {
+      userId,
       kind: 'AI_SUMMARY',
       inputHash,
       content: JSON.stringify(parsed),
@@ -232,12 +235,12 @@ export async function generateInsights(opts: { force?: boolean } = {}) {
   }
 }
 
-export async function getPatterns() {
+export async function getPatterns(userId: string) {
   const since = new Date()
   since.setDate(since.getDate() - LOOKBACK_DAYS)
 
   const checkIns = await prisma.checkIn.findMany({
-    where: { occurredAt: { gte: since } },
+    where: { userId, occurredAt: { gte: since } },
     include: { tags: { include: { tag: true } }, events: true },
     orderBy: { occurredAt: 'asc' },
   })

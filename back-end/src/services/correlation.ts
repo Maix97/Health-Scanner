@@ -15,8 +15,8 @@ const P_THRESHOLD_LARGE = 0.1   // >= 20 days
 const TENTATIVE_EXPOSURE = 8
 
 export function getThresholds(totalDays: number): { minSample: number; minLift: number; minMoodDiff: number } {
-  if (totalDays >= 30) return { minSample: 5, minLift: 0.3, minMoodDiff: 1.5 }
-  if (totalDays >= 20) return { minSample: 4, minLift: 0.25, minMoodDiff: 1.2 }
+  if (totalDays >= 30) return { minSample: 4, minLift: 0.25, minMoodDiff: 1.2 }
+  if (totalDays >= 20) return { minSample: 3, minLift: 0.2, minMoodDiff: 1.0 }
   return { minSample: 3, minLift: 0.2, minMoodDiff: 1.0 }
 }
 

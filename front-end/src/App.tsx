@@ -1,9 +1,12 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
 import { useSystemThemeSync } from './hooks/useTheme'
+import { useAuth, signOut } from './hooks/useAuth'
+import { useQueryClient } from '@tanstack/react-query'
 import Dashboard from './pages/Dashboard'
 import Entry from './pages/Entry'
 import History from './pages/History'
 import Insights from './pages/Insights'
+import Login from './pages/Login'
 import Settings from './pages/Settings'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -13,12 +16,32 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 
 function App() {
   useSystemThemeSync()
+  const { user, loading } = useAuth()
+  const queryClient = useQueryClient()
+
+  async function handleSignOut() {
+    await signOut()
+    queryClient.clear()
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <span className="text-sm text-slate-400">Loading...</span>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Login />
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-3xl flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center">
-          <span className="text-lg font-bold text-slate-900 sm:mr-4">Health Scanner</span>
-          <nav className="flex flex-wrap gap-1">
+        <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-3">
+          <span className="text-lg font-bold text-slate-900 mr-4">Health Scanner</span>
+          <nav className="flex flex-1 flex-wrap gap-1">
             <NavLink to="/" className={navLinkClass} end>
               Dashboard
             </NavLink>
@@ -35,6 +58,13 @@ function App() {
               + Add entry
             </NavLink>
           </nav>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="ml-2 rounded-md px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          >
+            Sign out
+          </button>
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-4 py-6">

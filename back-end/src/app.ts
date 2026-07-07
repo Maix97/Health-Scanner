@@ -1,5 +1,6 @@
 import cors from 'cors'
 import express from 'express'
+import { requireAuth } from './middleware/auth.js'
 import { checkInsRouter } from './routes/checkins.js'
 import { tagsRouter } from './routes/tags.js'
 import { insightsRouter } from './routes/insights.js'
@@ -19,6 +20,9 @@ app.get('/health', (_req, res) => {
 app.get('/api/config', (_req, res) => {
   res.json({ model: CLAUDE_MODEL, claudeConfigured: Boolean(process.env.ANTHROPIC_API_KEY) })
 })
+
+// All /api/* routes (except /api/config above) require a valid Supabase JWT.
+app.use('/api', requireAuth)
 
 app.use('/api/checkins', checkInsRouter)
 app.use('/api/tags', tagsRouter)

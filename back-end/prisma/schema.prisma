@@ -47,6 +47,7 @@ enum InsightKind {
 
 model CheckIn {
   id                 String    @id @default(cuid())
+  userId             String?
   occurredAt         DateTime  @default(now())
   timePeriod         TimePeriod?
   sleepScore         Int?
@@ -63,11 +64,13 @@ model CheckIn {
   events Event[]
 
   @@index([occurredAt])
+  @@index([userId])
 }
 
 model Tag {
   id          String      @id @default(cuid())
   label       String      @unique
+  userId      String?
   category    TagCategory
   polarity    Polarity?
   isPreset    Boolean     @default(false)
@@ -78,6 +81,8 @@ model Tag {
   children Tag[] @relation("TagChildren")
 
   checkIns CheckInTag[]
+
+  @@index([userId])
 }
 
 model CheckInTag {
@@ -113,6 +118,7 @@ model Event {
 
 model Insight {
   id                       String      @id @default(cuid())
+  userId                   String?
   generatedAt              DateTime    @default(now())
   periodStart              DateTime
   periodEnd                DateTime
@@ -123,4 +129,5 @@ model Insight {
   checkInCountAtGeneration Int
 
   @@index([kind, dismissed])
+  @@index([userId])
 }

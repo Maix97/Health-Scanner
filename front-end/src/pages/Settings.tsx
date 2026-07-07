@@ -117,7 +117,7 @@ export default function Settings() {
   return (
     <div>
       <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
-      <p className="mt-1 text-slate-500">Backup your data and check configuration. Everything is stored locally for now.</p>
+      <p className="mt-1 text-slate-500">Manage your account, backup data, and configure the app.</p>
 
       <section className="mt-6">
         <h2 className="mb-2 text-sm font-semibold text-slate-700">Appearance</h2>
@@ -192,6 +192,7 @@ export default function Settings() {
           API key: {config?.claudeConfigured ? 'configured' : 'not set — journal extraction and AI insights will not work'}
         </p>
       </section>
+
 
       {pendingImport && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/30">

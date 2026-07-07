@@ -90,7 +90,7 @@ function computeStats(current: RawCheckIn[], previous: RawCheckIn[]) {
   }
 }
 
-export async function getDashboardData(days: number): Promise<DashboardData> {
+export async function getDashboardData(days: number, userId: string): Promise<DashboardData> {
   const since = new Date()
   since.setDate(since.getDate() - days)
 
@@ -99,7 +99,7 @@ export async function getDashboardData(days: number): Promise<DashboardData> {
   sinceDouble.setDate(sinceDouble.getDate() - 2 * days)
 
   const allCheckIns = await prisma.checkIn.findMany({
-    where: { occurredAt: { gte: sinceDouble } },
+    where: { userId, occurredAt: { gte: sinceDouble } },
     include: { tags: { include: { tag: true } }, events: true },
     orderBy: { occurredAt: 'asc' },
   })

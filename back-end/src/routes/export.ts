@@ -4,10 +4,12 @@ import { prisma } from '../db/client.js'
 
 export const exportRouter = Router()
 
-exportRouter.get('/export', async (_req, res) => {
+exportRouter.get('/export', async (req, res) => {
+  const userId = req.userId
   const [tags, checkIns] = await Promise.all([
-    prisma.tag.findMany(),
+    prisma.tag.findMany({ orderBy: { label: 'asc' } }),
     prisma.checkIn.findMany({
+      where: { userId },
       include: { tags: true, events: true },
       orderBy: { occurredAt: 'asc' },
     }),
@@ -85,8 +87,8 @@ const importBodySchema = z.object({
   ),
 })
 
-// Only supports a full replace for v1 — merge semantics would need conflict
-// resolution that isn't worth building before this is actually needed.
+// Replaces only the current user's check-ins and insights. Tags are global so
+// non-preset imported tags are upserted rather than replacing all global tags.
 exportRouter.post('/import', async (req, res) => {
   const parsed = importBodySchema.safeParse(req.body)
   if (!parsed.success) {
@@ -95,18 +97,31 @@ exportRouter.post('/import', async (req, res) => {
   }
 
   const { tags, checkIns } = parsed.data
+  const userId = req.userId
 
   await prisma.$transaction(async (tx) => {
-    await tx.insight.deleteMany({})
-    await tx.event.deleteMany({})
-    await tx.checkInTag.deleteMany({})
-    await tx.checkIn.deleteMany({})
-    await tx.tag.deleteMany({})
+    // Clear only this user's data
+    await tx.insight.deleteMany({ where: { userId } })
+    await tx.checkIn.deleteMany({ where: { userId } })
+    // Delete this user's non-preset custom tags
+    await tx.tag.deleteMany({ where: { userId, isPreset: false } })
 
-    // Parents must exist before children can reference them.
+    // Upsert tags — presets by label (global), custom tags with userId
     const sortedTags = [...tags].sort((a, b) => (a.parentTagId ? 1 : 0) - (b.parentTagId ? 1 : 0))
     for (const tag of sortedTags) {
-      await tx.tag.create({ data: tag })
+      if (tag.isPreset) {
+        await tx.tag.upsert({
+          where: { label: tag.label },
+          update: {},
+          create: { id: tag.id, label: tag.label, category: tag.category, polarity: tag.polarity ?? undefined, isPreset: true },
+        })
+      } else {
+        await tx.tag.upsert({
+          where: { label: tag.label },
+          update: {},
+          create: { id: tag.id, label: tag.label, category: tag.category, polarity: tag.polarity ?? undefined, isPreset: false, userId },
+        })
+      }
     }
 
     for (const checkIn of checkIns) {
@@ -114,6 +129,7 @@ exportRouter.post('/import', async (req, res) => {
       await tx.checkIn.create({
         data: {
           ...rest,
+          userId,
           tags: {
             create: checkInTags.map((t) => ({ tagId: t.tagId, source: t.source, intensity: t.intensity })),
           },

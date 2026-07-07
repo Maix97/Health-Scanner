@@ -15,6 +15,6 @@ dashboardRouter.get('/', async (req, res) => {
     return
   }
 
-  const data = await getDashboardData(parsed.data.days)
+  const data = await getDashboardData(parsed.data.days, req.userId)
   res.json(data)
 })
