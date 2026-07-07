@@ -70,10 +70,10 @@ export default function DayMiniChart({ checkIns }: DayMiniChartProps) {
             <YAxis yAxisId="main" domain={[1, 10]} ticks={[1, 5, 10]} tick={{ fontSize: 10, fill: '#94a3b8' }} tickLine={false} axisLine={false} width={20} />
             <Tooltip content={<MiniTooltip />} />
             {hasMood && (
-              <Line yAxisId="main" type="monotone" dataKey="mood" stroke="#94a3b8" strokeWidth={2} dot={<MoodDot />} connectNulls />
+              <Line yAxisId="main" type="monotone" dataKey="mood" stroke="#94a3b8" strokeWidth={2} dot={<MoodDot />} connectNulls isAnimationActive={false} />
             )}
             {hasEnergy && (
-              <Line yAxisId="main" type="monotone" dataKey="energy" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 2" dot={<EnergyDot />} connectNulls />
+              <Line yAxisId="main" type="monotone" dataKey="energy" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 2" dot={<EnergyDot />} connectNulls isAnimationActive={false} />
             )}
           </LineChart>
         </ResponsiveContainer>
