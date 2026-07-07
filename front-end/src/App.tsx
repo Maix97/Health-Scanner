@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { NavLink, Route, Routes } from 'react-router-dom'
 import { useSystemThemeSync } from './hooks/useTheme'
 import { useAuth, signOut } from './hooks/useAuth'
@@ -11,7 +10,7 @@ import Login from './pages/Login'
 import Settings from './pages/Settings'
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `block px-3 py-2 rounded-md text-sm font-medium ${
+  `shrink-0 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
     isActive ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
   }`
 
@@ -23,90 +22,33 @@ const NAV_LINKS = [
   { to: '/entry', label: '+ Add entry' },
 ]
 
-function HamburgerIcon({ open }: { open: boolean }) {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-      {open ? (
-        <path fillRule="evenodd" clipRule="evenodd"
-          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" />
-      ) : (
-        <path fillRule="evenodd" clipRule="evenodd"
-          d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" />
-      )}
-    </svg>
-  )
-}
-
 function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSignOut: () => void }) {
-  const [menuOpen, setMenuOpen] = useState(false)
-
-  // Close menu on navigation
-  const handleNavClick = () => setMenuOpen(false)
-
   return (
     <div className="min-h-screen min-h-dvh bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        {/* Top bar */}
-        <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-3">
-          <span className="text-lg font-bold text-slate-900 mr-2">Health Scanner</span>
+        {/* Top row: logo + email + sign out */}
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 pt-3 pb-1">
+          <span className="text-lg font-bold text-slate-900 mr-auto">Health Scanner</span>
+          <span className="hidden sm:block text-sm text-slate-400 truncate max-w-[200px]">{user.email}</span>
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="shrink-0 rounded-md px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          >
+            Sign out
+          </button>
+        </div>
 
-          {/* Desktop nav */}
-          <nav className="hidden lg:flex flex-1 gap-1">
+        {/* Nav row: always visible, scrollable on mobile */}
+        <div className="mx-auto max-w-5xl px-2 pb-1">
+          <nav className="flex overflow-x-auto gap-1 scrollbar-none">
             {NAV_LINKS.map(({ to, label, end }) => (
               <NavLink key={to} to={to} className={navLinkClass} end={end}>
                 {label}
               </NavLink>
             ))}
           </nav>
-
-          {/* Desktop user info */}
-          <div className="hidden lg:flex items-center gap-2 ml-auto">
-            <span className="hidden xl:block text-sm text-slate-400 max-w-[180px] truncate">{user.email}</span>
-            <button
-              type="button"
-              onClick={onSignOut}
-              className="rounded-md px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-            >
-              Sign out
-            </button>
-          </div>
-
-          {/* Mobile: hamburger */}
-          <div className="flex lg:hidden items-center gap-2 ml-auto">
-            <button
-              type="button"
-              onClick={onSignOut}
-              className="rounded-md px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
-            >
-              Sign out
-            </button>
-            <button
-              type="button"
-              aria-label="Toggle menu"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((v) => !v)}
-              className="rounded-md p-2 text-slate-600 hover:bg-slate-100"
-            >
-              <HamburgerIcon open={menuOpen} />
-            </button>
-          </div>
         </div>
-
-        {/* Mobile dropdown */}
-        {menuOpen && (
-          <div className="border-t border-slate-100 lg:hidden">
-            <nav className="mx-auto max-w-5xl px-4 py-2 flex flex-col gap-0.5">
-              {NAV_LINKS.map(({ to, label, end }) => (
-                <NavLink key={to} to={to} className={navLinkClass} end={end} onClick={handleNavClick}>
-                  {label}
-                </NavLink>
-              ))}
-              <div className="mt-2 border-t border-slate-100 pt-2 px-3 pb-1 text-sm text-slate-400 truncate">
-                {user.email}
-              </div>
-            </nav>
-          </div>
-        )}
       </header>
 
       <main className="mx-auto max-w-3xl px-4 py-6">

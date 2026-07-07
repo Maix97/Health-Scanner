@@ -5,6 +5,14 @@ body {
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
 
+/* ── Utility ────────────────────────────────────────────────────────── */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* ── Mobile / iOS fixes ─────────────────────────────────────────────── */
 /* Prevent iOS Safari from zooming inputs by ensuring ≥16px font size   */
 input, textarea, select {
