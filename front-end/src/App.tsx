@@ -26,28 +26,29 @@ function AppShell({ user, onSignOut }: { user: { email?: string | null }; onSign
   return (
     <div className="min-h-screen min-h-dvh bg-slate-50">
       <header className="border-b border-slate-200 bg-white">
-        {/* Top row: logo + email + sign out */}
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 pt-3 pb-1">
-          <span className="text-lg font-bold text-slate-900 mr-auto">Health Scanner</span>
-          <span className="hidden sm:block text-sm text-slate-400 truncate max-w-[200px]">{user.email}</span>
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="shrink-0 rounded-md px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-          >
-            Sign out
-          </button>
-        </div>
+        <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-3">
+          <span className="shrink-0 text-lg font-bold text-slate-900 mr-2">Health Scanner</span>
 
-        {/* Nav row: always visible, scrollable on mobile */}
-        <div className="mx-auto max-w-5xl px-2 pb-1">
-          <nav className="flex overflow-x-auto gap-1 scrollbar-none">
+          {/* Nav — scrolls horizontally on narrow screens, visible at all widths */}
+          <nav className="flex overflow-x-auto gap-1 flex-1 scrollbar-none">
             {NAV_LINKS.map(({ to, label, end }) => (
               <NavLink key={to} to={to} className={navLinkClass} end={end}>
                 {label}
               </NavLink>
             ))}
           </nav>
+
+          {/* Email + sign out — email hides below sm */}
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="hidden sm:block text-sm text-slate-400 max-w-[160px] truncate">{user.email}</span>
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="rounded-md px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </header>
 
