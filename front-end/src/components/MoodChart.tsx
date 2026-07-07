@@ -95,15 +95,17 @@ export default function MoodChart({ data, show, onDayClick }: MoodChartProps) {
     <div style={{ cursor: onDayClick ? 'pointer' : undefined }}>
       <ResponsiveContainer width="100%" height={210}>
         <LineChart data={data} margin={{ top: 4, right: 32, bottom: 0, left: 0 }} onClick={handleClick}>
-          <ReferenceLine yAxisId="left" y={10} stroke="#e2e8f0" strokeDasharray="3 3" />
-          <ReferenceLine yAxisId="left" y={5} stroke="#e2e8f0" strokeDasharray="3 3" />
-          <ReferenceLine yAxisId="left" y={1} stroke="#e2e8f0" strokeDasharray="3 3" />
+          <ReferenceLine yAxisId="left" y={10} stroke="#e2e8f0" />
+          <ReferenceLine yAxisId="left" y={5} stroke="#e2e8f0" strokeDasharray="4 4" />
+          <ReferenceLine yAxisId="left" y={1} stroke="#e2e8f0" />
           <XAxis
             dataKey="date"
             tick={<XAxisTick />}
             height={36}
             interval={data.length > 14 ? Math.ceil(data.length / 10) : 0}
             padding={{ left: 12, right: 12 }}
+            axisLine={false}
+            tickLine={false}
           />
           <YAxis
             yAxisId="left"
