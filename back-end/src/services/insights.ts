@@ -8,6 +8,8 @@ import {
   computeMoodImpacts,
   computePeriodCorrelations,
   computePeriodMoodImpacts,
+  type CorrelationFinding,
+  type MoodFinding,
 } from './correlation.js'
 import { INSIGHT_TOOL_NAME, insightResultSchema, insightToolSchema } from '../schemas/insights.js'
 
@@ -248,16 +250,22 @@ export async function getPatterns(userId: string) {
   const days = buildDayRecords(checkIns)
   const periods = buildPeriodRecords(checkIns)
 
+  const allCorrelations = [...computeCorrelations(days), ...computePeriodCorrelations(periods), ...computeLaggedCorrelations(days)]
+  const allMoodImpacts = [...computeMoodImpacts(days), ...computePeriodMoodImpacts(periods)]
+
   return {
-    correlations: [
-      ...computeCorrelations(days),
-      ...computePeriodCorrelations(periods),
-      ...computeLaggedCorrelations(days),
-    ],
-    moodImpacts: [
-      ...computeMoodImpacts(days),
-      ...computePeriodMoodImpacts(periods),
-    ],
+    correlations: deduplicateFindings(allCorrelations, (f) => `${f.inputLabel}:${f.outcomeLabel}`, (f) => Math.abs(f.lift) * Math.sqrt(Math.min(f.daysWithInput, f.daysWithoutInput))),
+    moodImpacts: deduplicateFindings(allMoodImpacts, (f) => f.inputLabel, (f) => Math.abs(f.diff) * Math.sqrt(Math.min(f.daysWithInput, f.daysWithoutInput))),
     checkInCount: checkIns.length,
   }
+}
+
+function deduplicateFindings<T>(items: T[], key: (item: T) => string, score: (item: T) => number): T[] {
+  const best = new Map<string, T>()
+  for (const item of items) {
+    const k = key(item)
+    const existing = best.get(k)
+    if (!existing || score(item) > score(existing)) best.set(k, item)
+  }
+  return [...best.values()]
 }

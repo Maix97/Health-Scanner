@@ -22,6 +22,26 @@ function average(values: number[]): number | null {
   return values.reduce((sum, v) => sum + v, 0) / values.length
 }
 
+function deduplicateByLabel<T>(items: T[], key: (item: T) => string, score: (item: T) => number): T[] {
+  const best = new Map<string, T>()
+  for (const item of items) {
+    const k = key(item)
+    const existing = best.get(k)
+    if (!existing || score(item) > score(existing)) best.set(k, item)
+  }
+  return [...best.values()]
+}
+
+// Effect size weighted by sample size so a large effect from few days
+// doesn't beat a moderate effect from many days.
+function moodScore(f: MoodFinding): number {
+  return Math.abs(f.diff) * Math.sqrt(Math.min(f.daysWithInput, f.daysWithoutInput))
+}
+
+function correlationScore(f: CorrelationFinding): number {
+  return Math.abs(f.lift) * Math.sqrt(Math.min(f.daysWithInput, f.daysWithoutInput))
+}
+
 function buildDailyMoodSeries(dayRecords: DayRecord[], days: number): DailyMoodPoint[] {
   const byDate = new Map(dayRecords.map((d) => [d.date, d]))
   const points: DailyMoodPoint[] = []
@@ -110,13 +130,15 @@ export async function getDashboardData(days: number, userId: string): Promise<Da
   const dayRecords = buildDayRecords(checkIns)
   const periodRecords = buildPeriodRecords(checkIns)
 
-  const moodFindings = [...computeMoodImpacts(dayRecords), ...computePeriodMoodImpacts(periodRecords)]
-  const boosts = moodFindings.filter((f) => f.diff > 0).sort((a, b) => b.diff - a.diff).slice(0, 4)
-  const drags = moodFindings.filter((f) => f.diff < 0).sort((a, b) => a.diff - b.diff).slice(0, 4)
+  const allMoodFindings = [...computeMoodImpacts(dayRecords), ...computePeriodMoodImpacts(periodRecords)]
+  const dedupedMoodFindings = deduplicateByLabel(allMoodFindings, (f) => f.inputLabel, moodScore)
+  const boosts = dedupedMoodFindings.filter((f) => f.diff > 0).sort((a, b) => moodScore(b) - moodScore(a)).slice(0, 4)
+  const drags = dedupedMoodFindings.filter((f) => f.diff < 0).sort((a, b) => moodScore(b) - moodScore(a)).slice(0, 4)
 
-  const correlations = [...computeCorrelations(dayRecords), ...computePeriodCorrelations(periodRecords)]
-  const positiveCorrelations = correlations.filter((f) => f.beneficial).sort((a, b) => Math.abs(b.lift) - Math.abs(a.lift)).slice(0, 4)
-  const negativeCorrelations = correlations.filter((f) => !f.beneficial).sort((a, b) => Math.abs(b.lift) - Math.abs(a.lift)).slice(0, 4)
+  const allCorrelations = [...computeCorrelations(dayRecords), ...computePeriodCorrelations(periodRecords)]
+  const dedupedCorrelations = deduplicateByLabel(allCorrelations, (f) => `${f.inputLabel}:${f.outcomeLabel}`, correlationScore)
+  const positiveCorrelations = dedupedCorrelations.filter((f) => f.beneficial).sort((a, b) => correlationScore(b) - correlationScore(a)).slice(0, 4)
+  const negativeCorrelations = dedupedCorrelations.filter((f) => !f.beneficial).sort((a, b) => correlationScore(b) - correlationScore(a)).slice(0, 4)
 
   return {
     dailyMood: buildDailyMoodSeries(dayRecords, days),
