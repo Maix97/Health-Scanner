@@ -97,12 +97,7 @@ tagsRouter.delete('/:id', async (req, res) => {
     return
   }
 
-  if (existing.isPreset) {
-    res.status(403).json({ error: 'Cannot delete preset tags' })
-    return
-  }
-
-  if (existing.userId && existing.userId !== req.userId) {
+  if (!existing.isPreset && existing.userId && existing.userId !== req.userId) {
     res.status(403).json({ error: 'Cannot delete another user\'s tag' })
     return
   }

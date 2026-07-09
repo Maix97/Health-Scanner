@@ -107,16 +107,14 @@ function TagManageChip({
           Amount
         </button>
       </span>
-      {!tag.isPreset && (
-        <button
-          type="button"
-          onClick={() => onRequestDelete(tag)}
-          className="text-slate-300 hover:text-red-500 transition-colors"
-          aria-label={`Delete ${tag.label}`}
-        >
-          ×
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => onRequestDelete(tag)}
+        className="text-slate-300 hover:text-red-500 transition-colors"
+        aria-label={`Delete ${tag.label}`}
+      >
+        ×
+      </button>
     </span>
   )
 }
