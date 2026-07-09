@@ -10,6 +10,7 @@ interface RateableTagChipProps {
   label: string
   selected: boolean
   intensity: number | undefined
+  hasIntensity?: boolean
   onToggle: () => void
   onIntensityChange: (value: number | undefined) => void
 }
@@ -18,13 +19,14 @@ export default function RateableTagChip({
   label,
   selected,
   intensity,
+  hasIntensity = true,
   onToggle,
   onIntensityChange,
 }: RateableTagChipProps) {
   return (
     <div className="inline-flex items-center gap-1">
       <TagChip label={label} selected={selected} onClick={onToggle} />
-      {selected && (
+      {selected && hasIntensity && (
         <div className="flex gap-0.5">
           {LEVELS.map((level) => (
             <button

@@ -11,6 +11,7 @@ export function createTag(input: {
   category: TagCategory
   polarity?: Polarity
   parentTagId?: string
+  hasIntensity?: boolean
 }) {
   return apiRequest<Tag>('/tags', {
     method: 'POST',

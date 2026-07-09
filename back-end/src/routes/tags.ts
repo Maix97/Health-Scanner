@@ -31,6 +31,7 @@ const createTagSchema = z.object({
   category: categorySchema,
   polarity: polaritySchema.optional(),
   parentTagId: z.string().optional(),
+  hasIntensity: z.boolean().optional(),
 })
 
 tagsRouter.post('/', async (req, res) => {
@@ -57,6 +58,7 @@ tagsRouter.post('/', async (req, res) => {
       polarity: parsed.data.polarity,
       parentTagId,
       isPreset: false,
+      hasIntensity: parsed.data.hasIntensity ?? true,
       userId: req.userId,
     },
   })

@@ -46,41 +46,44 @@ export function defaultCheckInFormValues(): CheckInFormValues {
 }
 
 
-const HYDRATION_LEVELS: { label: string; display: string; active: string }[] = [
-  { label: 'hydration low', display: 'Low', active: 'border-rose-300 bg-rose-50 text-rose-700' },
-  { label: 'hydration ok', display: 'OK', active: 'border-amber-300 bg-amber-50 text-amber-700' },
-  { label: 'hydration good', display: 'Good', active: 'border-sky-300 bg-sky-50 text-sky-700' },
-]
+type TrackerLevel = { label: string; display: string; active: string }
 
-function HydrationSelector({
+function TrackerRow({
+  emoji,
+  name,
+  levels,
   tags,
   selectedIds,
   onToggle,
 }: {
+  emoji: string
+  name: string
+  levels: TrackerLevel[]
   tags: Tag[]
   selectedIds: string[]
   onToggle: (id: string) => void
 }) {
-  const levels = HYDRATION_LEVELS.map(({ label, display, active }) => ({
-    tag: tags.find((t) => t.label === label),
-    display,
-    active,
-  })).filter((l): l is { tag: Tag; display: string; active: string } => l.tag != null)
+  const resolved = levels
+    .map(({ label, display, active }) => ({ tag: tags.find((t) => t.label === label), display, active }))
+    .filter((l): l is { tag: Tag; display: string; active: string } => l.tag != null)
 
-  if (levels.length === 0) return null
+  if (resolved.length === 0) return null
+
+  const activeTag = resolved.find(({ tag }) => selectedIds.includes(tag.id))
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="mr-0.5 text-sm">💧</span>
-      {levels.map(({ tag, display, active }) => {
+      <span className="text-sm">{emoji}</span>
+      <span className="w-20 shrink-0 text-xs text-slate-500">{name}</span>
+      {resolved.map(({ tag, display, active }) => {
         const isActive = selectedIds.includes(tag.id)
         return (
           <button
             key={tag.id}
             type="button"
             onClick={() => onToggle(tag.id)}
-            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-              isActive ? active : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              isActive ? active : activeTag ? 'border-slate-100 bg-white text-slate-400' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
             }`}
           >
             {display}
@@ -91,18 +94,32 @@ function HydrationSelector({
   )
 }
 
-function NewTagInput({ onAdd }: { onAdd: (label: string) => void }) {
+const HYDRATION_LEVELS: TrackerLevel[] = [
+  { label: 'hydration low', display: 'Low', active: 'border-rose-300 bg-rose-50 text-rose-700' },
+  { label: 'hydration ok', display: 'OK', active: 'border-amber-300 bg-amber-50 text-amber-700' },
+  { label: 'hydration good', display: 'Good', active: 'border-sky-300 bg-sky-50 text-sky-700' },
+]
+
+const SCREEN_TIME_LEVELS: TrackerLevel[] = [
+  { label: 'screen time low', display: 'Low', active: 'border-emerald-300 bg-emerald-50 text-emerald-700' },
+  { label: 'screen time medium', display: 'Medium', active: 'border-amber-300 bg-amber-50 text-amber-700' },
+  { label: 'screen time high', display: 'High', active: 'border-rose-300 bg-rose-50 text-rose-700' },
+]
+
+function NewTagInput({ onAdd }: { onAdd: (label: string, hasIntensity: boolean) => void }) {
   const [value, setValue] = useState('')
+  const [hasIntensity, setHasIntensity] = useState(true)
 
   function submit() {
     const trimmed = value.trim()
     if (!trimmed) return
-    onAdd(trimmed)
+    onAdd(trimmed, hasIntensity)
     setValue('')
+    setHasIntensity(true)
   }
 
   return (
-    <div className="inline-flex items-center gap-1">
+    <div className="inline-flex flex-col gap-1">
       <input
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -115,6 +132,24 @@ function NewTagInput({ onAdd }: { onAdd: (label: string) => void }) {
         placeholder="add tag..."
         className="w-28 rounded-full border border-dashed border-slate-300 px-3 py-1.5 text-sm focus:border-slate-400 focus:outline-none"
       />
+      {value.trim() && (
+        <div className="flex gap-1 pl-1">
+          <button
+            type="button"
+            onClick={() => setHasIntensity(false)}
+            className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${!hasIntensity ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+          >
+            Simple
+          </button>
+          <button
+            type="button"
+            onClick={() => setHasIntensity(true)}
+            className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${hasIntensity ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+          >
+            Amount
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -217,6 +252,9 @@ export default function CheckInForm({
   const hydrationTagIds = new Set(
     quickToggleTags.filter((t) => t.label.startsWith('hydration ')).map((t) => t.id),
   )
+  const screenTimeTagIds = new Set(
+    quickToggleTags.filter((t) => t.label.startsWith('screen time ')).map((t) => t.id),
+  )
 
   function toggle(id: string, key: MultiTagKey) {
     setValues((v) => {
@@ -226,8 +264,10 @@ export default function CheckInForm({
         delete tagIntensities[id]
         return { ...v, [key]: v[key].filter((x) => x !== id), tagIntensities }
       }
-      // Hydration levels are mutually exclusive — deselect the others before adding.
-      const base = hydrationTagIds.has(id) ? v[key].filter((x) => !hydrationTagIds.has(x)) : v[key]
+      // Hydration and screen time levels are mutually exclusive within their group.
+      let base = v[key]
+      if (hydrationTagIds.has(id)) base = base.filter((x) => !hydrationTagIds.has(x))
+      if (screenTimeTagIds.has(id)) base = base.filter((x) => !screenTimeTagIds.has(x))
       return { ...v, [key]: [...base, id], tagIntensities }
     })
   }
@@ -247,8 +287,9 @@ export default function CheckInForm({
     polarity: Polarity | undefined,
     key: MultiTagKey,
     parentTagId?: string,
+    hasIntensity?: boolean,
   ) {
-    const tag = await createTag.mutateAsync({ label, category, polarity, parentTagId })
+    const tag = await createTag.mutateAsync({ label, category, polarity, parentTagId, hasIntensity })
     setValues((v) => ({ ...v, [key]: [...v[key], tag.id] }))
   }
 
@@ -370,11 +411,12 @@ export default function CheckInForm({
                   label={tag.label}
                   selected={values.selectedHealthIds.includes(tag.id)}
                   intensity={values.tagIntensities[tag.id]}
+                  hasIntensity={tag.hasIntensity}
                   onToggle={() => toggle(tag.id, 'selectedHealthIds')}
                   onIntensityChange={(value) => setTagIntensity(tag.id, value)}
                 />
               ))}
-              <NewTagInput onAdd={(label) => handleAddTag(label, 'FEELING', 'NEGATIVE', 'selectedHealthIds')} />
+              <NewTagInput onAdd={(label, hasIntensity) => handleAddTag(label, 'FEELING', 'NEGATIVE', 'selectedHealthIds', undefined, hasIntensity)} />
             </div>
           </div>
           <div>
@@ -387,11 +429,12 @@ export default function CheckInForm({
                   label={tag.label}
                   selected={values.selectedHealthIds.includes(tag.id)}
                   intensity={values.tagIntensities[tag.id]}
+                  hasIntensity={tag.hasIntensity}
                   onToggle={() => toggle(tag.id, 'selectedHealthIds')}
                   onIntensityChange={(value) => setTagIntensity(tag.id, value)}
                 />
               ))}
-              <NewTagInput onAdd={(label) => handleAddTag(label, 'FEELING', 'POSITIVE', 'selectedHealthIds')} />
+              <NewTagInput onAdd={(label, hasIntensity) => handleAddTag(label, 'FEELING', 'POSITIVE', 'selectedHealthIds', undefined, hasIntensity)} />
             </div>
           </div>
         </div>
@@ -407,11 +450,12 @@ export default function CheckInForm({
               label={tag.label}
               selected={values.selectedExerciseIds.includes(tag.id)}
               intensity={values.tagIntensities[tag.id]}
+              hasIntensity={tag.hasIntensity}
               onToggle={() => toggle(tag.id, 'selectedExerciseIds')}
               onIntensityChange={(value) => setTagIntensity(tag.id, value)}
             />
           ))}
-          <NewTagInput onAdd={(label) => handleAddTag(label, 'EXERCISE', undefined, 'selectedExerciseIds')} />
+          <NewTagInput onAdd={(label, hasIntensity) => handleAddTag(label, 'EXERCISE', undefined, 'selectedExerciseIds', undefined, hasIntensity)} />
         </div>
       </section>
 
@@ -442,12 +486,13 @@ export default function CheckInForm({
                 label={tag.label}
                 selected={values.selectedFoodIds.includes(tag.id)}
                 intensity={values.tagIntensities[tag.id]}
+                hasIntensity={tag.hasIntensity}
                 onToggle={() => toggle(tag.id, 'selectedFoodIds')}
                 onIntensityChange={(value) => setTagIntensity(tag.id, value)}
               />
             )
           })}
-          <NewTagInput onAdd={(label) => handleAddTag(label, 'FOOD', undefined, 'selectedFoodIds')} />
+          <NewTagInput onAdd={(label, hasIntensity) => handleAddTag(label, 'FOOD', undefined, 'selectedFoodIds', undefined, hasIntensity)} />
         </div>
       </section>
 
@@ -455,23 +500,37 @@ export default function CheckInForm({
         <h2 className="mb-2 text-sm font-semibold text-slate-700">Quick toggles</h2>
         {quickToggleTagsLoading && <p className="text-sm text-slate-400">Loading...</p>}
         <div className="flex flex-col gap-2.5">
-          <HydrationSelector
+          <TrackerRow
+            emoji="💧"
+            name="Hydration"
+            levels={HYDRATION_LEVELS}
+            tags={quickToggleTags}
+            selectedIds={values.selectedToggleIds}
+            onToggle={(id) => toggle(id, 'selectedToggleIds')}
+          />
+          <TrackerRow
+            emoji="📱"
+            name="Screen time"
+            levels={SCREEN_TIME_LEVELS}
             tags={quickToggleTags}
             selectedIds={values.selectedToggleIds}
             onToggle={(id) => toggle(id, 'selectedToggleIds')}
           />
           <div className="flex flex-wrap gap-2">
-            {quickToggleTags.filter((t) => !t.label.startsWith('hydration ')).map((tag) => (
-              <RateableTagChip
-                key={tag.id}
-                label={tag.label}
-                selected={values.selectedToggleIds.includes(tag.id)}
-                intensity={values.tagIntensities[tag.id]}
-                onToggle={() => toggle(tag.id, 'selectedToggleIds')}
-                onIntensityChange={(value) => setTagIntensity(tag.id, value)}
-              />
-            ))}
-            <NewTagInput onAdd={(label) => handleAddTag(label, 'QUICK_TOGGLE', undefined, 'selectedToggleIds')} />
+            {quickToggleTags
+              .filter((t) => !t.label.startsWith('hydration ') && !t.label.startsWith('screen time '))
+              .map((tag) => (
+                <RateableTagChip
+                  key={tag.id}
+                  label={tag.label}
+                  selected={values.selectedToggleIds.includes(tag.id)}
+                  intensity={values.tagIntensities[tag.id]}
+                  hasIntensity={tag.hasIntensity}
+                  onToggle={() => toggle(tag.id, 'selectedToggleIds')}
+                  onIntensityChange={(value) => setTagIntensity(tag.id, value)}
+                />
+              ))}
+            <NewTagInput onAdd={(label, hasIntensity) => handleAddTag(label, 'QUICK_TOGGLE', undefined, 'selectedToggleIds', undefined, hasIntensity)} />
           </div>
         </div>
       </section>

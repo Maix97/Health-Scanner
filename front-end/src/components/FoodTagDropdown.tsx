@@ -29,6 +29,7 @@ export default function FoodTagDropdown({
 
   const isParentSelected = selectedFoodIds.includes(tag.id)
   const selectedChildCount = children.filter((c) => selectedFoodIds.includes(c.id)).length
+  const hasAnySelection = isParentSelected || selectedChildCount > 0
 
   useEffect(() => {
     if (!open) return
@@ -68,7 +69,7 @@ export default function FoodTagDropdown({
       {/* Parent chip — label toggles selection, arrow opens dropdown */}
       <div
         className={`inline-flex items-center rounded-full border text-sm capitalize transition-colors ${
-          isParentSelected
+          hasAnySelection
             ? 'border-slate-900 bg-slate-900 text-white'
             : 'border-slate-300 bg-white text-slate-700'
         }`}
@@ -81,7 +82,7 @@ export default function FoodTagDropdown({
           <span className="block truncate">
             {tag.label}
             {selectedChildCount > 0 && (
-              <span className={`ml-1 text-[11px] font-normal ${isParentSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+              <span className="ml-1 text-[11px] font-normal text-white/70">
                 {(() => {
                   const selected = children.filter((c) => selectedFoodIds.includes(c.id))
                   if (selected.length === 1) return `· ${selected[0].label}`
@@ -92,7 +93,7 @@ export default function FoodTagDropdown({
             )}
           </span>
         </button>
-        {isParentSelected && (
+        {isParentSelected && tag.hasIntensity && (
           <div className="flex gap-0.5 px-1" onClick={(e) => e.stopPropagation()}>
             {[1, 2, 3].map((v) => (
               <button
@@ -101,8 +102,8 @@ export default function FoodTagDropdown({
                 onClick={() => onIntensityChange(tag.id, tagIntensities[tag.id] === v ? undefined : v)}
                 className={`h-5 w-5 rounded text-[10px] font-semibold transition-colors ${
                   tagIntensities[tag.id] === v
-                    ? 'bg-white text-slate-900'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    ? 'bg-white/20 text-white ring-1 ring-white/60'
+                    : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
                 {v}
@@ -114,7 +115,7 @@ export default function FoodTagDropdown({
           type="button"
           onClick={handleArrowClick}
           className={`border-l py-1.5 pl-1.5 pr-2.5 transition-colors hover:opacity-80 ${
-            isParentSelected ? 'border-slate-700' : 'border-slate-200'
+            hasAnySelection ? 'border-slate-700' : 'border-slate-200'
           }`}
           title="Pick specific items"
         >
@@ -157,8 +158,8 @@ export default function FoodTagDropdown({
                         onClick={() => onIntensityChange(child.id, intensity === v ? undefined : v)}
                         className={`h-5 w-5 rounded text-[10px] font-semibold transition-colors ${
                           intensity === v
-                            ? 'bg-white text-slate-900'
-                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                            ? 'bg-white/20 text-white ring-1 ring-white/60'
+                            : 'text-slate-500 hover:text-slate-300'
                         }`}
                       >
                         {v}

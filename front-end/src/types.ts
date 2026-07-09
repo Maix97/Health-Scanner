@@ -10,6 +10,7 @@ export interface Tag {
   category: TagCategory
   polarity: Polarity | null
   isPreset: boolean
+  hasIntensity: boolean
   parentTagId: string | null
   createdAt: string
 }

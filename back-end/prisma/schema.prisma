@@ -68,14 +68,15 @@ model CheckIn {
 }
 
 model Tag {
-  id          String      @id @default(cuid())
-  label       String
-  userId      String?
-  category    TagCategory
-  polarity    Polarity?
-  isPreset    Boolean     @default(false)
-  parentTagId String?
-  createdAt   DateTime    @default(now())
+  id           String      @id @default(cuid())
+  label        String
+  userId       String?
+  category     TagCategory
+  polarity     Polarity?
+  isPreset     Boolean     @default(false)
+  hasIntensity Boolean     @default(true)
+  parentTagId  String?
+  createdAt    DateTime    @default(now())
 
   parent   Tag?  @relation("TagChildren", fields: [parentTagId], references: [id], onDelete: Cascade)
   children Tag[] @relation("TagChildren")
