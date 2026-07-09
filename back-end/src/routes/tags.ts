@@ -66,6 +66,30 @@ tagsRouter.post('/', async (req, res) => {
   res.status(201).json(tag)
 })
 
+const patchTagSchema = z.object({
+  hasIntensity: z.boolean(),
+})
+
+tagsRouter.patch('/:id', async (req, res) => {
+  const parsed = patchTagSchema.safeParse(req.body)
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() })
+    return
+  }
+
+  const existing = await prisma.tag.findUnique({ where: { id: req.params.id } })
+  if (!existing) {
+    res.status(404).json({ error: 'Tag not found' })
+    return
+  }
+
+  const tag = await prisma.tag.update({
+    where: { id: req.params.id },
+    data: { hasIntensity: parsed.data.hasIntensity },
+  })
+  res.json(tag)
+})
+
 tagsRouter.delete('/:id', async (req, res) => {
   const existing = await prisma.tag.findUnique({ where: { id: req.params.id } })
   if (!existing) {

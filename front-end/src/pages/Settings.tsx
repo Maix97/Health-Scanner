@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchConfig } from '../api/config'
 import { fetchExportData, importData } from '../api/export'
-import { useDeleteTag, useTags } from '../hooks/useTags'
+import { useDeleteTag, useUpdateTag, useTags } from '../hooks/useTags'
 import { getTheme, setTheme, type Theme } from '../hooks/useTheme'
 import { supabase } from '../lib/supabase'
 import type { Tag } from '../types'
@@ -79,30 +79,66 @@ function ChangePasswordSection() {
   )
 }
 
-function TagDeleteChip({ tag, onRequestDelete }: { tag: Tag; onRequestDelete: (tag: Tag) => void }) {
+function TagManageChip({
+  tag,
+  onRequestDelete,
+  onToggleIntensity,
+}: {
+  tag: Tag
+  onRequestDelete: (tag: Tag) => void
+  onToggleIntensity: (tag: Tag) => void
+}) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm capitalize text-slate-700">
+    <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white pl-3 pr-1.5 py-1 text-sm capitalize text-slate-700">
       {tag.label}
-      <button
-        type="button"
-        onClick={() => onRequestDelete(tag)}
-        className="ml-0.5 text-slate-400 hover:text-red-600"
-        aria-label={`Delete ${tag.label}`}
-      >
-        ×
-      </button>
+      <span className="mx-1 flex gap-0.5">
+        <button
+          type="button"
+          onClick={() => tag.hasIntensity && onToggleIntensity(tag)}
+          className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${!tag.hasIntensity ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+        >
+          Simple
+        </button>
+        <button
+          type="button"
+          onClick={() => !tag.hasIntensity && onToggleIntensity(tag)}
+          className={`rounded px-1.5 py-0.5 text-[10px] font-medium transition-colors ${tag.hasIntensity ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-100'}`}
+        >
+          Amount
+        </button>
+      </span>
+      {!tag.isPreset && (
+        <button
+          type="button"
+          onClick={() => onRequestDelete(tag)}
+          className="text-slate-300 hover:text-red-500 transition-colors"
+          aria-label={`Delete ${tag.label}`}
+        >
+          ×
+        </button>
+      )}
     </span>
   )
 }
 
-function TagGroup({ title, tags, onRequestDelete }: { title: string; tags: Tag[]; onRequestDelete: (tag: Tag) => void }) {
+function TagGroup({
+  title,
+  tags,
+  onRequestDelete,
+  onToggleIntensity,
+}: {
+  title: string
+  tags: Tag[]
+  onRequestDelete: (tag: Tag) => void
+  onToggleIntensity: (tag: Tag) => void
+}) {
   if (tags.length === 0) return null
   return (
     <div>
       <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</p>
       <div className="flex flex-wrap gap-2">
         {tags.map((tag) => (
-          <TagDeleteChip key={tag.id} tag={tag} onRequestDelete={onRequestDelete} />
+          <TagManageChip key={tag.id} tag={tag} onRequestDelete={onRequestDelete} onToggleIntensity={onToggleIntensity} />
         ))}
       </div>
     </div>
@@ -134,6 +170,7 @@ export default function Settings() {
   const { data: exerciseTags = [] } = useTags('EXERCISE')
   const { data: foodTags = [] } = useTags('FOOD')
   const deleteTag = useDeleteTag()
+  const updateTag = useUpdateTag()
 
   async function handleExport() {
     const data = await fetchExportData()
@@ -244,16 +281,38 @@ export default function Settings() {
             title="Health — negative"
             tags={feelingTags.filter((t) => t.polarity === 'NEGATIVE')}
             onRequestDelete={setPendingDeleteTag}
+            onToggleIntensity={(tag) => updateTag.mutate({ id: tag.id, patch: { hasIntensity: !tag.hasIntensity } })}
           />
           <TagGroup
             title="Health — positive"
             tags={feelingTags.filter((t) => t.polarity === 'POSITIVE')}
             onRequestDelete={setPendingDeleteTag}
+            onToggleIntensity={(tag) => updateTag.mutate({ id: tag.id, patch: { hasIntensity: !tag.hasIntensity } })}
           />
-          <TagGroup title="Exercise" tags={exerciseTags} onRequestDelete={setPendingDeleteTag} />
-          <TagGroup title="Quick toggles" tags={quickToggleTags} onRequestDelete={setPendingDeleteTag} />
-          <TagGroup title="Food — categories" tags={foodTags.filter((t) => !t.parentTagId)} onRequestDelete={setPendingDeleteTag} />
-          <TagGroup title="Food — items" tags={foodTags.filter((t) => !!t.parentTagId)} onRequestDelete={setPendingDeleteTag} />
+          <TagGroup
+            title="Exercise"
+            tags={exerciseTags}
+            onRequestDelete={setPendingDeleteTag}
+            onToggleIntensity={(tag) => updateTag.mutate({ id: tag.id, patch: { hasIntensity: !tag.hasIntensity } })}
+          />
+          <TagGroup
+            title="Quick toggles"
+            tags={quickToggleTags}
+            onRequestDelete={setPendingDeleteTag}
+            onToggleIntensity={(tag) => updateTag.mutate({ id: tag.id, patch: { hasIntensity: !tag.hasIntensity } })}
+          />
+          <TagGroup
+            title="Food — categories"
+            tags={foodTags.filter((t) => !t.parentTagId)}
+            onRequestDelete={setPendingDeleteTag}
+            onToggleIntensity={(tag) => updateTag.mutate({ id: tag.id, patch: { hasIntensity: !tag.hasIntensity } })}
+          />
+          <TagGroup
+            title="Food — items"
+            tags={foodTags.filter((t) => !!t.parentTagId)}
+            onRequestDelete={setPendingDeleteTag}
+            onToggleIntensity={(tag) => updateTag.mutate({ id: tag.id, patch: { hasIntensity: !tag.hasIntensity } })}
+          />
         </div>
       </section>
 

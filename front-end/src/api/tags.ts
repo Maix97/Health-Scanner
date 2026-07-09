@@ -19,6 +19,13 @@ export function createTag(input: {
   })
 }
 
+export function updateTag(id: string, patch: { hasIntensity: boolean }) {
+  return apiRequest<Tag>(`/tags/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  })
+}
+
 export function deleteTag(id: string) {
   return apiRequest<{ ok: boolean; removedFromCheckIns: number }>(`/tags/${id}`, {
     method: 'DELETE',
