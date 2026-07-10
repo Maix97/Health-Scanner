@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useGenerateInsights, useInsights, usePatterns } from '../hooks/useInsights'
-import type { AiSummaryContent, CorrelationFinding, MoodFinding } from '../types'
+import type { AiSummaryContent, CorrelationFinding, ScoreFinding, SleepHoursBucket, SleepPatterns, SleepQualityComparison } from '../types'
 
 function cap(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
@@ -42,47 +42,34 @@ interface TriggerGroup {
   inputLabel: string
   emoji: string
   correlations: CorrelationFinding[]
-  moodImpact: MoodFinding | undefined
+  scoreImpacts: ScoreFinding[]
   column: 'helping' | 'hurting'
   allConfounded: boolean
   badge: 'strong' | 'tentative' | 'confounded' | null
   dominantScore: number
 }
 
-function buildGroups(correlations: CorrelationFinding[], moodImpacts: MoodFinding[]): TriggerGroup[] {
+function buildGroups(correlations: CorrelationFinding[], scoreImpacts: ScoreFinding[]): TriggerGroup[] {
   const map = new Map<string, TriggerGroup>()
 
-  for (const f of correlations) {
-    if (!map.has(f.inputLabel)) {
-      map.set(f.inputLabel, {
-        inputLabel: f.inputLabel,
-        emoji: getEmoji(f.inputLabel),
+  function ensure(inputLabel: string): TriggerGroup {
+    if (!map.has(inputLabel)) {
+      map.set(inputLabel, {
+        inputLabel,
+        emoji: getEmoji(inputLabel),
         correlations: [],
-        moodImpact: undefined,
+        scoreImpacts: [],
         column: 'hurting',
         allConfounded: false,
         badge: null,
         dominantScore: 0,
       })
     }
-    map.get(f.inputLabel)!.correlations.push(f)
+    return map.get(inputLabel)!
   }
 
-  for (const f of moodImpacts) {
-    if (!map.has(f.inputLabel)) {
-      map.set(f.inputLabel, {
-        inputLabel: f.inputLabel,
-        emoji: getEmoji(f.inputLabel),
-        correlations: [],
-        moodImpact: undefined,
-        column: 'hurting',
-        allConfounded: false,
-        badge: null,
-        dominantScore: 0,
-      })
-    }
-    map.get(f.inputLabel)!.moodImpact = f
-  }
+  for (const f of correlations) ensure(f.inputLabel).correlations.push(f)
+  for (const f of scoreImpacts) ensure(f.inputLabel).scoreImpacts.push(f)
 
   const groups = [...map.values()]
 
@@ -94,9 +81,9 @@ function buildGroups(correlations: CorrelationFinding[], moodImpacts: MoodFindin
       if (c.beneficial) helpScore += w
       else hurtScore += w
     }
-    if (g.moodImpact) {
-      const norm = Math.abs(g.moodImpact.diff) / 9
-      if (g.moodImpact.diff > 0) helpScore += norm
+    for (const s of g.scoreImpacts) {
+      const norm = Math.abs(s.diff) / 9
+      if (s.diff > 0) helpScore += norm
       else hurtScore += norm
     }
     g.column = helpScore >= hurtScore ? 'helping' : 'hurting'
@@ -105,13 +92,13 @@ function buildGroups(correlations: CorrelationFinding[], moodImpacts: MoodFindin
     g.allConfounded =
       g.correlations.length > 0 &&
       g.correlations.every((c) => c.confounded) &&
-      !g.moodImpact
+      g.scoreImpacts.length === 0
 
     const nonConfounded = g.correlations.filter((c) => !c.confounded)
     const hasConfound = g.correlations.some((c) => c.confounded)
-    if (hasConfound && nonConfounded.length === 0 && !g.moodImpact) {
+    if (hasConfound && nonConfounded.length === 0 && g.scoreImpacts.length === 0) {
       g.badge = 'confounded'
-    } else if (nonConfounded.length > 0 && nonConfounded.every((c) => c.tentative) && !g.moodImpact) {
+    } else if (nonConfounded.length > 0 && nonConfounded.every((c) => c.tentative) && g.scoreImpacts.length === 0) {
       g.badge = 'tentative'
     } else if (nonConfounded.some((c) => !c.tentative && c.daysWithInput >= 15)) {
       g.badge = 'strong'
@@ -213,19 +200,25 @@ function CorrelationRow({ f }: { f: CorrelationFinding }) {
   )
 }
 
-function MoodRow({ f }: { f: MoodFinding }) {
+const METRIC_LABEL: Record<ScoreFinding['metric'], string> = { mood: 'Mood', energy: 'Energy', sleep: 'Sleep quality' }
+const METRIC_ICON: Record<ScoreFinding['metric'], string> = { mood: '🙂', energy: '⚡', sleep: '😴' }
+
+function ScoreRow({ f }: { f: ScoreFinding }) {
   const positive = f.diff > 0
   const color = positive ? '#10b981' : '#f43f5e'
-  const rateWith = (f.avgMoodWithInput - 1) / 9
-  const rateWithout = (f.avgMoodWithoutInput - 1) / 9
+  const rateWith = (f.avgWithInput - 1) / 9
+  const rateWithout = (f.avgWithoutInput - 1) / 9
   return (
     <div className="py-2">
-      <div className="mb-1">
-        <span className="text-xs font-medium text-slate-600">Mood</span>
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-xs font-medium text-slate-600">{METRIC_ICON[f.metric]} {METRIC_LABEL[f.metric]}</span>
+        {f.tentative && (
+          <span className="rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-[9px] font-medium text-amber-600">early</span>
+        )}
       </div>
       <div className="space-y-0.5">
-        <CompRow barValue={rateWith} displayLabel={`${f.avgMoodWithInput.toFixed(1)}/10`} activeColor={color} rowLabel="with" />
-        <GrayRow barValue={rateWithout} displayLabel={`${f.avgMoodWithoutInput.toFixed(1)}/10`} rowLabel="w/out" />
+        <CompRow barValue={rateWith} displayLabel={`${f.avgWithInput.toFixed(1)}/10`} activeColor={color} rowLabel="with" />
+        <GrayRow barValue={rateWithout} displayLabel={`${f.avgWithoutInput.toFixed(1)}/10`} rowLabel="w/out" />
       </div>
       <p className="mt-0.5 text-[10px] text-slate-400">
         {positive ? '+' : ''}{f.diff.toFixed(1)} pts avg · n={f.daysWithInput}
@@ -265,7 +258,9 @@ function TriggerCard({ group }: { group: TriggerGroup }) {
         <CardBadge badge={group.badge} />
       </div>
       <div className="divide-y divide-slate-100">
-        {group.moodImpact && <MoodRow f={group.moodImpact} />}
+        {group.scoreImpacts.map((f) => (
+          <ScoreRow key={f.metric} f={f} />
+        ))}
         {sortedCorr.map((f, i) => (
           <CorrelationRow key={i} f={f} />
         ))}
@@ -389,11 +384,12 @@ function HeadlineStrip({ groups }: { groups: TriggerGroup[] }) {
       continue
     }
 
-    if (g.moodImpact && Math.abs(g.moodImpact.diff) >= 1.5) {
-      const { diff } = g.moodImpact
+    const biggestScore = [...g.scoreImpacts].sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))[0]
+    if (biggestScore && Math.abs(biggestScore.diff) >= 1.5) {
+      const { diff, metric } = biggestScore
       const prefix = g.emoji ? `${g.emoji} ` : ''
       headlines.push({
-        text: `${prefix}${cap(g.inputLabel)} → mood ${diff > 0 ? '+' : ''}${diff.toFixed(1)} pts avg`,
+        text: `${prefix}${cap(g.inputLabel)} → ${metric} ${diff > 0 ? '+' : ''}${diff.toFixed(1)} pts avg`,
         beneficial: diff > 0,
       })
     }
@@ -490,6 +486,126 @@ function AiPanel({ aiContent, generatedAt }: { aiContent: string; generatedAt: s
   )
 }
 
+// ─── Sleep panel ────────────────────────────────────────────────────────────
+
+function SleepQualityCard({ comparisons }: { comparisons: SleepQualityComparison[] }) {
+  if (comparisons.length === 0) return null
+  return (
+    <div className="rounded-xl border border-violet-100 bg-white p-4 shadow-sm">
+      <h3 className="mb-1 text-sm font-semibold text-violet-700">Sleep quality → mood/energy</h3>
+      <div className="divide-y divide-slate-100">
+        {comparisons.map((c) => (
+          <div key={c.metric} className="py-2">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-600">{METRIC_ICON[c.metric]} {METRIC_LABEL[c.metric]}</span>
+              {c.tentative && (
+                <span className="rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-[9px] font-medium text-amber-600">early</span>
+              )}
+            </div>
+            <div className="space-y-0.5">
+              <CompRow barValue={(c.goodAvg - 1) / 9} displayLabel={`${c.goodAvg.toFixed(1)}/10`} activeColor="#10b981" rowLabel="good" />
+              <CompRow barValue={(c.poorAvg - 1) / 9} displayLabel={`${c.poorAvg.toFixed(1)}/10`} activeColor="#f43f5e" rowLabel="poor" />
+            </div>
+            <p className="mt-0.5 text-[10px] text-slate-400">
+              good sleep ≥7 (n={c.goodN}) vs poor sleep ≤4 (n={c.poorN})
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SleepHoursCard({ buckets }: { buckets: SleepHoursBucket[] }) {
+  if (buckets.length === 0) return null
+  return (
+    <div className="rounded-xl border border-violet-100 bg-white p-4 shadow-sm">
+      <h3 className="mb-1 text-sm font-semibold text-violet-700">Hours slept → mood/energy</h3>
+      <div className="divide-y divide-slate-100">
+        {buckets.map((b) => (
+          <div key={b.bucket} className="py-2">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-600">{b.bucket} <span className="text-slate-300">(n={b.n})</span></span>
+              {b.tentative && (
+                <span className="rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-[9px] font-medium text-amber-600">early</span>
+              )}
+            </div>
+            <div className="space-y-0.5">
+              {b.avgMood != null && <CompRow barValue={(b.avgMood - 1) / 9} displayLabel={`${b.avgMood.toFixed(1)}`} activeColor="#94a3b8" rowLabel="mood" />}
+              {b.avgEnergy != null && <CompRow barValue={(b.avgEnergy - 1) / 9} displayLabel={`${b.avgEnergy.toFixed(1)}`} activeColor="#f59e0b" rowLabel="energy" />}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function WentToBedLateCard({ correlations, scoreImpacts }: { correlations: CorrelationFinding[]; scoreImpacts: ScoreFinding[] }) {
+  if (correlations.length === 0 && scoreImpacts.length === 0) return null
+  return (
+    <div className="rounded-xl border border-violet-100 bg-white p-4 shadow-sm">
+      <h3 className="mb-1 text-sm font-semibold text-violet-700">🌙 Went to bed late → next day</h3>
+      <div className="divide-y divide-slate-100">
+        {scoreImpacts.map((f) => <ScoreRow key={f.metric} f={f} />)}
+        {correlations.map((f, i) => <CorrelationRow key={i} f={f} />)}
+      </div>
+    </div>
+  )
+}
+
+function ExposureSleepCard({ impacts }: { impacts: ScoreFinding[] }) {
+  if (impacts.length === 0) return null
+  return (
+    <div className="rounded-xl border border-violet-100 bg-white p-4 shadow-sm">
+      <h3 className="mb-1 text-sm font-semibold text-violet-700">🌙 What predicts your sleep quality</h3>
+      <div className="divide-y divide-slate-100">
+        {impacts.map((f, i) => {
+          const color = f.diff > 0 ? '#10b981' : '#f43f5e'
+          return (
+            <div key={i} className="py-2">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-600">{cap(f.inputLabel)}</span>
+                {f.tentative && (
+                  <span className="rounded border border-amber-200 bg-amber-50 px-1 py-0.5 text-[9px] font-medium text-amber-600">early</span>
+                )}
+              </div>
+              <div className="space-y-0.5">
+                <CompRow barValue={(f.avgWithInput - 1) / 9} displayLabel={`${f.avgWithInput.toFixed(1)}/10`} activeColor={color} rowLabel="with" />
+                <GrayRow barValue={(f.avgWithoutInput - 1) / 9} displayLabel={`${f.avgWithoutInput.toFixed(1)}/10`} rowLabel="w/out" />
+              </div>
+              <p className="mt-0.5 text-[10px] text-slate-400">that night · n={f.daysWithInput}</p>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function SleepSection({ sleep }: { sleep: SleepPatterns | undefined }) {
+  if (!sleep) return null
+  const hasAny =
+    sleep.qualityVsOutcomes.length > 0 ||
+    sleep.hoursBuckets.length > 0 ||
+    sleep.wentToBedLateCorrelations.length > 0 ||
+    sleep.wentToBedLateScoreImpacts.length > 0 ||
+    sleep.exposureSleepImpacts.length > 0
+  if (!hasAny) return null
+
+  return (
+    <div className="mt-8">
+      <h2 className="mb-3 text-sm font-semibold text-violet-700">😴 Sleep</h2>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SleepQualityCard comparisons={sleep.qualityVsOutcomes} />
+        <SleepHoursCard buckets={sleep.hoursBuckets} />
+        <WentToBedLateCard correlations={sleep.wentToBedLateCorrelations} scoreImpacts={sleep.wentToBedLateScoreImpacts} />
+        <ExposureSleepCard impacts={sleep.exposureSleepImpacts} />
+      </div>
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function Insights() {
@@ -513,10 +629,18 @@ export default function Insights() {
     }
   }
 
-  const groups = buildGroups(patterns?.correlations ?? [], patterns?.moodImpacts ?? [])
+  const groups = buildGroups(patterns?.correlations ?? [], [...(patterns?.moodImpacts ?? []), ...(patterns?.energyImpacts ?? [])])
   const helpingGroups = groups.filter((g) => !g.allConfounded && g.column === 'helping')
   const hurtingGroups = groups.filter((g) => !g.allConfounded && g.column === 'hurting')
   const confoundedGroups = groups.filter((g) => g.allConfounded)
+  const sleep = patterns?.sleep
+  const hasSleepData = !!sleep && (
+    sleep.qualityVsOutcomes.length > 0 ||
+    sleep.hoursBuckets.length > 0 ||
+    sleep.wentToBedLateCorrelations.length > 0 ||
+    sleep.wentToBedLateScoreImpacts.length > 0 ||
+    sleep.exposureSleepImpacts.length > 0
+  )
   const latestAi = insights.find((i) => i.kind === 'AI_SUMMARY' && !i.dismissed)
   const isLoading = patternsLoading || insightsLoading
 
@@ -554,7 +678,7 @@ export default function Insights() {
 
       {isLoading && <p className="mt-6 text-sm text-slate-500">Loading...</p>}
 
-      {!isLoading && groups.length === 0 && (
+      {!isLoading && groups.length === 0 && !hasSleepData && (
         <div className="mt-10 text-center">
           <p className="text-sm text-slate-500">No patterns found yet.</p>
           <p className="mt-1 text-xs text-slate-400">
@@ -589,6 +713,8 @@ export default function Insights() {
           )}
         </div>
       )}
+
+      {!isLoading && <SleepSection sleep={patterns?.sleep} />}
 
       {latestAi && <AiPanel aiContent={latestAi.content} generatedAt={latestAi.generatedAt} />}
     </div>

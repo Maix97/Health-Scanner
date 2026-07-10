@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import MoodChart, { type ChartToggles } from '../components/MoodChart'
 import { useDashboard } from '../hooks/useDashboard'
 import type { PeriodStat } from '../api/dashboard'
-import type { CorrelationFinding, MoodFinding } from '../types'
+import type { CorrelationFinding, ScoreFinding } from '../types'
 
 const RANGE_OPTIONS = [7, 14, 30]
 
@@ -58,18 +58,21 @@ function StatPill({
   )
 }
 
-function MoodFindingRow({ f, positive }: { f: MoodFinding; positive: boolean }) {
+const METRIC_ICON: Record<ScoreFinding['metric'], string> = { mood: '🙂', energy: '⚡', sleep: '😴' }
+
+function ScoreFindingRow({ f, positive }: { f: ScoreFinding; positive: boolean }) {
   const sign = positive ? '+' : ''
-  const pct = Math.round(Math.abs(f.diff) / f.avgMoodWithoutInput * 100)
+  const pct = Math.round(Math.abs(f.diff) / f.avgWithoutInput * 100)
   return (
     <div className="flex items-start gap-2 text-sm">
       <span className={`mt-0.5 shrink-0 text-base leading-none ${positive ? 'text-emerald-500' : 'text-red-400'}`}>
         {positive ? '↑' : '↓'}
       </span>
       <div>
+        <span className="mr-1" title={f.metric}>{METRIC_ICON[f.metric]}</span>
         <span className="font-medium text-slate-800">{cap(f.inputLabel)}</span>
-        <span className="text-slate-500"> → mood {sign}{f.diff.toFixed(1)} pts on avg </span>
-        <span className="text-slate-400 text-xs">({f.avgMoodWithInput.toFixed(1)} vs {f.avgMoodWithoutInput.toFixed(1)}, ~{pct}% {positive ? 'higher' : 'lower'})</span>
+        <span className="text-slate-500"> → {f.metric} {sign}{f.diff.toFixed(1)} pts on avg </span>
+        <span className="text-slate-400 text-xs">({f.avgWithInput.toFixed(1)} vs {f.avgWithoutInput.toFixed(1)}, ~{pct}% {positive ? 'higher' : 'lower'})</span>
       </div>
     </div>
   )
@@ -96,26 +99,29 @@ function ImpactSection({
   title,
   color,
   moodFindings,
+  energyFindings,
   correlations,
   emptyText,
 }: {
   title: string
   color: 'green' | 'red'
-  moodFindings: MoodFinding[]
+  moodFindings: ScoreFinding[]
+  energyFindings: ScoreFinding[]
   correlations: CorrelationFinding[]
   emptyText: string
 }) {
   const positive = color === 'green'
   const titleClass = positive ? 'text-emerald-600' : 'text-red-600'
-  const isEmpty = moodFindings.length === 0 && correlations.length === 0
+  const isEmpty = moodFindings.length === 0 && energyFindings.length === 0 && correlations.length === 0
   return (
-    <div>
+    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
       <h2 className={`mb-3 text-sm font-semibold ${titleClass}`}>{title}</h2>
       {isEmpty ? (
         <p className="text-sm text-slate-400">{emptyText}</p>
       ) : (
         <div className="space-y-2.5">
-          {moodFindings.map((f, i) => <MoodFindingRow key={`m${i}`} f={f} positive={positive} />)}
+          {moodFindings.map((f, i) => <ScoreFindingRow key={`m${i}`} f={f} positive={positive} />)}
+          {energyFindings.map((f, i) => <ScoreFindingRow key={`e${i}`} f={f} positive={positive} />)}
           {correlations.map((f, i) => <CorrelationRow key={`c${i}`} f={f} />)}
         </div>
       )}
@@ -225,6 +231,7 @@ export default function Dashboard() {
           title="What's helping"
           color="green"
           moodFindings={data?.boosts ?? []}
+          energyFindings={data?.energyBoosts ?? []}
           correlations={data?.positiveCorrelations ?? []}
           emptyText="Not enough data yet to tell what's helping."
         />
@@ -232,6 +239,7 @@ export default function Dashboard() {
           title="What's hurting"
           color="red"
           moodFindings={data?.drags ?? []}
+          energyFindings={data?.energyDrags ?? []}
           correlations={data?.negativeCorrelations ?? []}
           emptyText="Not enough data yet to tell what's hurting."
         />

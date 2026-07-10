@@ -1,4 +1,4 @@
-import { dayKey, nextDayKey, type CarryoverPeriod, type DayRecord, type PeriodRecord } from './dayAggregation.js'
+import { dayKey, nextDayKey, shiftDayKey, type CarryoverPeriod, type DayRecord, type PeriodRecord } from './dayAggregation.js'
 import { benjaminiHochberg, fisherExactPValue } from './stats.js'
 
 export const MIN_TOTAL_DAYS = 7
@@ -12,7 +12,11 @@ const MIN_ISOLATED_DAYS = 3
 const P_THRESHOLD_SMALL = 0.15  // < 20 days
 const P_THRESHOLD_LARGE = 0.1   // >= 20 days
 // Inputs are marked tentative until this many exposure days
-const TENTATIVE_EXPOSURE = 8
+export const TENTATIVE_EXPOSURE = 8
+
+export function pThresholdFor(totalDays: number): number {
+  return totalDays >= 20 ? P_THRESHOLD_LARGE : P_THRESHOLD_SMALL
+}
 
 export function getThresholds(totalDays: number): { minSample: number; minLift: number; minMoodDiff: number } {
   if (totalDays >= 30) return { minSample: 4, minLift: 0.25, minMoodDiff: 1.2 }
@@ -62,26 +66,35 @@ export interface LaggyFactor {
 export const LAGGY_FACTORS: LaggyFactor[] = [
   { tag: 'alcohol', windowDays: 3 },
   { tag: 'late screen time', windowDays: 2 },
+  { tag: 'coffee', windowDays: 2 },
   { tag: 'poor sleep', windowDays: 2, isSleepBased: true },
 ]
 
-export interface MoodFinding {
+export type ScoreMetric = 'mood' | 'energy' | 'sleep'
+
+export interface ScoreFinding {
+  metric: ScoreMetric
   inputLabel: string
   daysWithInput: number
   daysWithoutInput: number
-  avgMoodWithInput: number
-  avgMoodWithoutInput: number
+  avgWithInput: number
+  avgWithoutInput: number
   diff: number
   summary: string
+  tentative: boolean
   context?: string
 }
 
-function hasOutcome(day: DayRecord, outcomeLabel: string): boolean {
+// Kept as an alias so existing call sites/types (mood-only) keep working —
+// ScoreFinding generalizes this same shape to energy and sleep.
+export type MoodFinding = ScoreFinding
+
+export function hasOutcome(day: DayRecord, outcomeLabel: string): boolean {
   if (outcomeLabel === BAD_SLEEP_OUTCOME) return day.sleepScore != null && day.sleepScore <= POOR_SLEEP_THRESHOLD
   return day.outcomeLabels.has(outcomeLabel)
 }
 
-function confidenceLabel(n: number): string {
+export function confidenceLabel(n: number): string {
   if (n >= 15) return 'solid'
   if (n >= 8) return 'moderate'
   return 'tentative'
@@ -101,7 +114,7 @@ function formatFinding(
   return `On ${withPct}% of days with ${inputLabel} (n=${daysWithInput}), ${outcomeLabel} was reported, vs ${withoutPct}% on days without (n=${daysWithoutInput}) — ${conf}.`
 }
 
-function average(values: number[]): number | null {
+export function average(values: number[]): number | null {
   if (values.length === 0) return null
   return values.reduce((sum, v) => sum + v, 0) / values.length
 }
@@ -252,19 +265,28 @@ export function computeCorrelations(days: DayRecord[]): CorrelationFinding[] {
     .slice(0, MAX_FINDINGS)
 }
 
+const METRIC_WORD: Record<ScoreMetric, string> = { mood: 'mood', energy: 'energy', sleep: 'sleep quality' }
+
+function scoreValues(day: DayRecord, metric: ScoreMetric): number[] {
+  if (metric === 'mood') return day.moodScores
+  if (metric === 'energy') return day.energyScores
+  return day.sleepScore != null ? [day.sleepScore] : []
+}
+
 // Same explainable approach as computeCorrelations, but compares average
-// 1-10 mood score instead of a binary outcome rate.
-export function computeMoodImpacts(days: DayRecord[]): MoodFinding[] {
+// 1-10 score (mood, energy, or sleep quality) instead of a binary outcome rate.
+export function computeScoreImpacts(days: DayRecord[], metric: ScoreMetric): ScoreFinding[] {
   if (days.length < MIN_TOTAL_DAYS) return []
 
   const { minSample, minMoodDiff } = getThresholds(days.length)
+  const word = METRIC_WORD[metric]
 
   const inputLabels = new Set<string>()
   for (const day of days) {
     for (const label of day.inputLabels) inputLabels.add(label)
   }
 
-  const findings: MoodFinding[] = []
+  const findings: ScoreFinding[] = []
 
   for (const inputLabel of inputLabels) {
     const daysWith = days.filter((d) => d.inputLabels.has(inputLabel))
@@ -272,29 +294,39 @@ export function computeMoodImpacts(days: DayRecord[]): MoodFinding[] {
 
     if (daysWith.length < minSample || daysWithout.length < minSample) continue
 
-    const moodWith = daysWith.flatMap((d) => d.moodScores)
-    const moodWithout = daysWithout.flatMap((d) => d.moodScores)
+    const scoresWith = daysWith.flatMap((d) => scoreValues(d, metric))
+    const scoresWithout = daysWithout.flatMap((d) => scoreValues(d, metric))
 
-    if (moodWith.length < minSample || moodWithout.length < minSample) continue
+    if (scoresWith.length < minSample || scoresWithout.length < minSample) continue
 
-    const avgMoodWithInput = average(moodWith)!
-    const avgMoodWithoutInput = average(moodWithout)!
-    const diff = avgMoodWithInput - avgMoodWithoutInput
+    const avgWithInput = average(scoresWith)!
+    const avgWithoutInput = average(scoresWithout)!
+    const diff = avgWithInput - avgWithoutInput
 
     if (Math.abs(diff) < minMoodDiff) continue
 
     findings.push({
+      metric,
       inputLabel,
       daysWithInput: daysWith.length,
       daysWithoutInput: daysWithout.length,
-      avgMoodWithInput,
-      avgMoodWithoutInput,
+      avgWithInput,
+      avgWithoutInput,
       diff,
-      summary: `Avg mood with ${inputLabel}: ${avgMoodWithInput.toFixed(1)}/10 (n=${daysWith.length}), without: ${avgMoodWithoutInput.toFixed(1)}/10 (n=${daysWithout.length}) — ${confidenceLabel(Math.min(daysWith.length, daysWithout.length))}.`,
+      tentative: daysWith.length < TENTATIVE_EXPOSURE,
+      summary: `Avg ${word} with ${inputLabel}: ${avgWithInput.toFixed(1)}/10 (n=${daysWith.length}), without: ${avgWithoutInput.toFixed(1)}/10 (n=${daysWithout.length}) — ${confidenceLabel(Math.min(daysWith.length, daysWithout.length))}.`,
     })
   }
 
   return findings.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, MAX_FINDINGS)
+}
+
+export function computeMoodImpacts(days: DayRecord[]): ScoreFinding[] {
+  return computeScoreImpacts(days, 'mood')
+}
+
+export function computeEnergyImpacts(days: DayRecord[]): ScoreFinding[] {
+  return computeScoreImpacts(days, 'energy')
 }
 
 interface PeriodPairRule {
@@ -446,14 +478,21 @@ export function computePeriodCorrelations(periods: PeriodRecord[]): CorrelationF
     .slice(0, MAX_FINDINGS)
 }
 
-export function computePeriodMoodImpacts(periods: PeriodRecord[]): MoodFinding[] {
+function periodScoreValues(p: PeriodRecord, metric: ScoreMetric): number[] {
+  if (metric === 'mood') return p.moodScores
+  if (metric === 'energy') return p.energyScores
+  return p.sleepScore != null ? [p.sleepScore] : []
+}
+
+export function computePeriodScoreImpacts(periods: PeriodRecord[], metric: ScoreMetric): ScoreFinding[] {
   const totalDays = new Set(periods.map((p) => p.date)).size
   const { minSample, minMoodDiff } = getThresholds(totalDays)
+  const word = METRIC_WORD[metric]
 
   const byKey = new Map<string, PeriodRecord>()
   for (const p of periods) byKey.set(`${p.date}|${p.period}`, p)
 
-  const findings: MoodFinding[] = []
+  const findings: ScoreFinding[] = []
 
   for (const rule of PERIOD_PAIR_RULES) {
     const pairs = pairsForRule(periods, byKey, rule)
@@ -469,33 +508,43 @@ export function computePeriodMoodImpacts(periods: PeriodRecord[]): MoodFinding[]
 
       if (pairsWith.length < minSample || pairsWithout.length < minSample) continue
 
-      const moodWith = pairsWith.flatMap((p) => p.later.moodScores)
-      const moodWithout = pairsWithout.flatMap((p) => p.later.moodScores)
+      const scoresWith = pairsWith.flatMap((p) => periodScoreValues(p.later, metric))
+      const scoresWithout = pairsWithout.flatMap((p) => periodScoreValues(p.later, metric))
 
-      if (moodWith.length < minSample || moodWithout.length < minSample) continue
+      if (scoresWith.length < minSample || scoresWithout.length < minSample) continue
 
-      const avgMoodWithInput = average(moodWith)!
-      const avgMoodWithoutInput = average(moodWithout)!
-      const diff = avgMoodWithInput - avgMoodWithoutInput
+      const avgWithInput = average(scoresWith)!
+      const avgWithoutInput = average(scoresWithout)!
+      const diff = avgWithInput - avgWithoutInput
 
       if (Math.abs(diff) < minMoodDiff) continue
 
       const laterPhrase = laterPeriodPhrase(rule.laterPeriod, rule.crossesDay)
 
       findings.push({
+        metric,
         inputLabel: predictorLabel,
         daysWithInput: pairsWith.length,
         daysWithoutInput: pairsWithout.length,
-        avgMoodWithInput,
-        avgMoodWithoutInput,
+        avgWithInput,
+        avgWithoutInput,
         diff,
-        summary: `${predictorLabel} in the ${periodWord(rule.earlierPeriod)} → mood ${laterPhrase}: ${avgMoodWithInput.toFixed(1)}/10 (n=${pairsWith.length}) vs ${avgMoodWithoutInput.toFixed(1)}/10 without (n=${pairsWithout.length}) — ${confidenceLabel(Math.min(pairsWith.length, pairsWithout.length))}.`,
+        tentative: pairsWith.length < TENTATIVE_EXPOSURE,
+        summary: `${predictorLabel} in the ${periodWord(rule.earlierPeriod)} → ${word} ${laterPhrase}: ${avgWithInput.toFixed(1)}/10 (n=${pairsWith.length}) vs ${avgWithoutInput.toFixed(1)}/10 without (n=${pairsWithout.length}) — ${confidenceLabel(Math.min(pairsWith.length, pairsWithout.length))}.`,
         context: `${rule.earlierPeriod}->${rule.laterPeriod}`,
       })
     }
   }
 
   return findings.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, MAX_FINDINGS)
+}
+
+export function computePeriodMoodImpacts(periods: PeriodRecord[]): ScoreFinding[] {
+  return computePeriodScoreImpacts(periods, 'mood')
+}
+
+export function computePeriodEnergyImpacts(periods: PeriodRecord[]): ScoreFinding[] {
+  return computePeriodScoreImpacts(periods, 'energy')
 }
 
 // ─── Lagged / rolling-window analysis ────────────────────────────────────────
@@ -664,4 +713,74 @@ export function computeLaggedCorrelations(days: DayRecord[]): CorrelationFinding
   return findings
     .sort((a, b) => Math.abs(b.lift) - Math.abs(a.lift))
     .slice(0, MAX_FINDINGS)
+}
+
+// ─── Next-day score impact (e.g. "does today's exposure predict tonight's
+// sleep quality / tomorrow's mood/energy?") ───────────────────────────────
+
+// Generic single-day-lag version of computeScoreImpacts: for every input
+// label seen on day D, compares the metric's average on day D+lagDays for
+// days that had the input vs days that didn't. Used for "exposure → that
+// night's sleep quality" (lagDays=1) but works for any metric/lag.
+export function computeLaggedScoreImpacts(days: DayRecord[], metric: ScoreMetric, lagDays: number): ScoreFinding[] {
+  if (days.length < MIN_TOTAL_DAYS) return []
+
+  const sortedDays = [...days].sort((a, b) => a.date.localeCompare(b.date))
+  const byDate = new Map<string, DayRecord>(sortedDays.map((d) => [d.date, d]))
+  const { minSample, minMoodDiff } = getThresholds(sortedDays.length)
+  const word = METRIC_WORD[metric]
+
+  const inputLabels = new Set<string>()
+  for (const day of sortedDays) {
+    for (const label of day.inputLabels) inputLabels.add(label)
+  }
+
+  const findings: ScoreFinding[] = []
+
+  for (const inputLabel of inputLabels) {
+    const scoresWith: number[] = []
+    const scoresWithout: number[] = []
+    let daysWith = 0
+    let daysWithout = 0
+
+    for (const day of sortedDays) {
+      const target = byDate.get(shiftDayKey(day.date, lagDays))
+      if (!target) continue
+      const scores = scoreValues(target, metric)
+      if (scores.length === 0) continue
+
+      if (day.inputLabels.has(inputLabel)) {
+        scoresWith.push(...scores)
+        daysWith++
+      } else {
+        scoresWithout.push(...scores)
+        daysWithout++
+      }
+    }
+
+    if (daysWith < minSample || daysWithout < minSample) continue
+
+    const avgWithInput = average(scoresWith)!
+    const avgWithoutInput = average(scoresWithout)!
+    const diff = avgWithInput - avgWithoutInput
+
+    if (Math.abs(diff) < minMoodDiff) continue
+
+    const lagPhrase = lagDays === 1 ? 'that night' : `${lagDays}d later`
+
+    findings.push({
+      metric,
+      inputLabel,
+      daysWithInput: daysWith,
+      daysWithoutInput: daysWithout,
+      avgWithInput,
+      avgWithoutInput,
+      diff,
+      tentative: daysWith < TENTATIVE_EXPOSURE,
+      summary: `${inputLabel} → ${word} ${lagPhrase}: ${avgWithInput.toFixed(1)}/10 (n=${daysWith}) vs ${avgWithoutInput.toFixed(1)}/10 without (n=${daysWithout}) — ${confidenceLabel(Math.min(daysWith, daysWithout))}.`,
+      context: `lagged:${lagDays}d`,
+    })
+  }
+
+  return findings.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, MAX_FINDINGS)
 }

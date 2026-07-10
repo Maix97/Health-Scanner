@@ -12,12 +12,20 @@ export interface DayRecord {
   outcomeLabels: Set<string>
   positiveOutcomeLabels: Set<string>
   sleepScore: number | null
+  sleepHours: number | null
+  wentToBedLate: boolean | null
   moodScores: number[]
   energyScores: number[]
 }
 
 export function dayKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+// Shifts a "YYYY-MM-DD" key by N calendar days (negative goes backward).
+export function shiftDayKey(date: string, days: number): string {
+  const [year, month, day] = date.split('-').map(Number)
+  return dayKey(new Date(year, month - 1, day + days))
 }
 
 // Quick-toggle/exercise/food tags and food/drink/activity events are treated
@@ -31,7 +39,7 @@ export function buildDayRecords(checkIns: CheckInWithRelations[]): DayRecord[] {
     const key = dayKey(checkIn.occurredAt)
     let record = byDay.get(key)
     if (!record) {
-      record = { date: key, inputLabels: new Set(), outcomeLabels: new Set(), positiveOutcomeLabels: new Set(), sleepScore: null, moodScores: [], energyScores: [] }
+      record = { date: key, inputLabels: new Set(), outcomeLabels: new Set(), positiveOutcomeLabels: new Set(), sleepScore: null, sleepHours: null, wentToBedLate: null, moodScores: [], energyScores: [] }
       byDay.set(key, record)
     }
 
@@ -57,6 +65,12 @@ export function buildDayRecords(checkIns: CheckInWithRelations[]): DayRecord[] {
     // that's the one most likely reporting on the prior night's sleep.
     if (record.sleepScore === null && typeof checkIn.sleepScore === 'number') {
       record.sleepScore = checkIn.sleepScore
+    }
+    if (record.sleepHours === null && typeof checkIn.sleepHours === 'number') {
+      record.sleepHours = checkIn.sleepHours
+    }
+    if (record.wentToBedLate === null && typeof checkIn.wentToBedLate === 'boolean') {
+      record.wentToBedLate = checkIn.wentToBedLate
     }
 
     if (typeof checkIn.moodScore === 'number') {

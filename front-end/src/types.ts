@@ -79,15 +79,48 @@ export interface GenerateInsightsResult {
   noFindings?: boolean
 }
 
-export interface MoodFinding {
+export type ScoreMetric = 'mood' | 'energy' | 'sleep'
+
+export interface ScoreFinding {
+  metric: ScoreMetric
   inputLabel: string
   daysWithInput: number
   daysWithoutInput: number
-  avgMoodWithInput: number
-  avgMoodWithoutInput: number
+  avgWithInput: number
+  avgWithoutInput: number
   diff: number
   summary: string
+  tentative: boolean
   context?: string
+}
+
+export type MoodFinding = ScoreFinding
+
+export interface SleepQualityComparison {
+  metric: 'mood' | 'energy'
+  goodAvg: number
+  poorAvg: number
+  goodN: number
+  poorN: number
+  diff: number
+  tentative: boolean
+  summary: string
+}
+
+export interface SleepHoursBucket {
+  bucket: string
+  n: number
+  avgMood: number | null
+  avgEnergy: number | null
+  tentative: boolean
+}
+
+export interface SleepPatterns {
+  qualityVsOutcomes: SleepQualityComparison[]
+  hoursBuckets: SleepHoursBucket[]
+  wentToBedLateCorrelations: CorrelationFinding[]
+  wentToBedLateScoreImpacts: ScoreFinding[]
+  exposureSleepImpacts: ScoreFinding[]
 }
 
 export interface CorrelationFinding {

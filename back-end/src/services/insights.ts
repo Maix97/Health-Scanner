@@ -4,13 +4,22 @@ import { getClaudeClient, CLAUDE_MODEL } from './claude.js'
 import { buildDayRecords, buildPeriodRecords } from './dayAggregation.js'
 import {
   computeCorrelations,
+  computeEnergyImpacts,
   computeLaggedCorrelations,
   computeMoodImpacts,
   computePeriodCorrelations,
+  computePeriodEnergyImpacts,
   computePeriodMoodImpacts,
   type CorrelationFinding,
-  type MoodFinding,
+  type ScoreFinding,
 } from './correlation.js'
+import {
+  computeExposureSleepImpacts,
+  computeSleepHoursBuckets,
+  computeSleepQualityVsOutcomes,
+  computeWentToBedLateImpacts,
+  computeWentToBedLateScoreImpacts,
+} from './sleep.js'
 import { INSIGHT_TOOL_NAME, insightResultSchema, insightToolSchema } from '../schemas/insights.js'
 
 const LOOKBACK_DAYS = 90
@@ -73,13 +82,21 @@ export async function generateInsights(opts: { force?: boolean; userId: string }
 
   const findings = computeCorrelations(days)
   const moodFindings = computeMoodImpacts(days)
+  const energyFindings = computeEnergyImpacts(days)
   const periodFindings = computePeriodCorrelations(periods)
   const periodMoodFindings = computePeriodMoodImpacts(periods)
+  const periodEnergyFindings = computePeriodEnergyImpacts(periods)
   const laggedFindings = computeLaggedCorrelations(days)
+
+  const sleepQualityFindings = computeSleepQualityVsOutcomes(days)
+  const wentToBedLateCorrelations = computeWentToBedLateImpacts(days)
+  const wentToBedLateScoreImpacts = computeWentToBedLateScoreImpacts(days)
+  const exposureSleepImpacts = computeExposureSleepImpacts(days)
 
   const createdCorrelationInsights = [
     ...(await cacheFindings(findings, 'correlation', (f) => `${f.inputLabel}:${f.outcomeLabel}`, since, checkInCount, userId)),
     ...(await cacheFindings(moodFindings, 'mood', (f) => f.inputLabel, since, checkInCount, userId)),
+    ...(await cacheFindings(energyFindings, 'energy', (f) => f.inputLabel, since, checkInCount, userId)),
     ...(await cacheFindings(
       periodFindings,
       'period-correlation',
@@ -96,7 +113,19 @@ export async function generateInsights(opts: { force?: boolean; userId: string }
       checkInCount,
       userId,
     )),
+    ...(await cacheFindings(
+      periodEnergyFindings,
+      'period-energy',
+      (f) => `${f.context}:${f.inputLabel}`,
+      since,
+      checkInCount,
+      userId,
+    )),
     ...(await cacheFindings(laggedFindings, 'lagged', (f) => `${f.inputLabel}:${f.outcomeLabel}`, since, checkInCount, userId)),
+    ...(await cacheFindings(sleepQualityFindings, 'sleep-quality', (f) => f.metric, since, checkInCount, userId)),
+    ...(await cacheFindings(wentToBedLateCorrelations, 'sleep-late-corr', (f) => f.outcomeLabel, since, checkInCount, userId)),
+    ...(await cacheFindings(wentToBedLateScoreImpacts, 'sleep-late-score', (f) => f.metric, since, checkInCount, userId)),
+    ...(await cacheFindings(exposureSleepImpacts, 'sleep-exposure', (f) => f.inputLabel, since, checkInCount, userId)),
   ]
 
   const lastSummary = await prisma.insight.findFirst({
@@ -117,14 +146,20 @@ export async function generateInsights(opts: { force?: boolean; userId: string }
     }
   }
 
-  const allFindings = [...findings, ...periodFindings, ...laggedFindings]
+  const allFindings = [...findings, ...periodFindings, ...laggedFindings, ...wentToBedLateCorrelations]
 
   const allFindingSummaries = [
     ...findings.map((f) => f.summary),
     ...moodFindings.map((f) => f.summary),
+    ...energyFindings.map((f) => f.summary),
     ...periodFindings.map((f) => f.summary),
     ...periodMoodFindings.map((f) => f.summary),
+    ...periodEnergyFindings.map((f) => f.summary),
     ...laggedFindings.map((f) => f.summary),
+    ...sleepQualityFindings.map((f) => f.summary),
+    ...wentToBedLateCorrelations.map((f) => f.summary),
+    ...wentToBedLateScoreImpacts.map((f) => f.summary),
+    ...exposureSleepImpacts.map((f) => f.summary),
   ]
 
   if (allFindingSummaries.length === 0) {
@@ -252,11 +287,22 @@ export async function getPatterns(userId: string) {
 
   const allCorrelations = [...computeCorrelations(days), ...computePeriodCorrelations(periods), ...computeLaggedCorrelations(days)]
   const allMoodImpacts = [...computeMoodImpacts(days), ...computePeriodMoodImpacts(periods)]
+  const allEnergyImpacts = [...computeEnergyImpacts(days), ...computePeriodEnergyImpacts(periods)]
+
+  const scoreScore = (f: ScoreFinding) => Math.abs(f.diff) * Math.sqrt(Math.min(f.daysWithInput, f.daysWithoutInput))
 
   return {
     correlations: deduplicateFindings(allCorrelations, (f) => `${f.inputLabel}:${f.outcomeLabel}`, (f) => Math.abs(f.lift) * Math.sqrt(Math.min(f.daysWithInput, f.daysWithoutInput))),
-    moodImpacts: deduplicateFindings(allMoodImpacts, (f) => f.inputLabel, (f) => Math.abs(f.diff) * Math.sqrt(Math.min(f.daysWithInput, f.daysWithoutInput))),
+    moodImpacts: deduplicateFindings(allMoodImpacts, (f) => f.inputLabel, scoreScore),
+    energyImpacts: deduplicateFindings(allEnergyImpacts, (f) => f.inputLabel, scoreScore),
     checkInCount: checkIns.length,
+    sleep: {
+      qualityVsOutcomes: computeSleepQualityVsOutcomes(days),
+      hoursBuckets: computeSleepHoursBuckets(days),
+      wentToBedLateCorrelations: computeWentToBedLateImpacts(days),
+      wentToBedLateScoreImpacts: computeWentToBedLateScoreImpacts(days),
+      exposureSleepImpacts: computeExposureSleepImpacts(days),
+    },
   }
 }
 

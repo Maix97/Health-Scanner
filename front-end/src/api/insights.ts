@@ -1,10 +1,12 @@
 import { apiRequest } from './client'
-import type { CorrelationFinding, GenerateInsightsResult, Insight, MoodFinding } from '../types'
+import type { CorrelationFinding, GenerateInsightsResult, Insight, ScoreFinding, SleepPatterns } from '../types'
 
 export interface PatternsData {
   correlations: CorrelationFinding[]
-  moodImpacts: MoodFinding[]
+  moodImpacts: ScoreFinding[]
+  energyImpacts: ScoreFinding[]
   checkInCount: number
+  sleep: SleepPatterns
 }
 
 export function fetchInsights() {

@@ -2,11 +2,13 @@ import { prisma } from '../db/client.js'
 import { buildDayRecords, buildPeriodRecords, dayKey, type DayRecord } from './dayAggregation.js'
 import {
   computeCorrelations,
+  computeEnergyImpacts,
   computeMoodImpacts,
   computePeriodCorrelations,
+  computePeriodEnergyImpacts,
   computePeriodMoodImpacts,
   type CorrelationFinding,
-  type MoodFinding,
+  type ScoreFinding,
 } from './correlation.js'
 
 export interface DailyMoodPoint {
@@ -34,7 +36,7 @@ function deduplicateByLabel<T>(items: T[], key: (item: T) => string, score: (ite
 
 // Effect size weighted by sample size so a large effect from few days
 // doesn't beat a moderate effect from many days.
-function moodScore(f: MoodFinding): number {
+function moodScore(f: ScoreFinding): number {
   return Math.abs(f.diff) * Math.sqrt(Math.min(f.daysWithInput, f.daysWithoutInput))
 }
 
@@ -72,8 +74,10 @@ export interface PeriodStat {
 
 export interface DashboardData {
   dailyMood: DailyMoodPoint[]
-  boosts: MoodFinding[]
-  drags: MoodFinding[]
+  boosts: ScoreFinding[]
+  drags: ScoreFinding[]
+  energyBoosts: ScoreFinding[]
+  energyDrags: ScoreFinding[]
   positiveCorrelations: CorrelationFinding[]
   negativeCorrelations: CorrelationFinding[]
   checkInCount: number
@@ -135,6 +139,11 @@ export async function getDashboardData(days: number, userId: string): Promise<Da
   const boosts = dedupedMoodFindings.filter((f) => f.diff > 0).sort((a, b) => moodScore(b) - moodScore(a)).slice(0, 4)
   const drags = dedupedMoodFindings.filter((f) => f.diff < 0).sort((a, b) => moodScore(b) - moodScore(a)).slice(0, 4)
 
+  const allEnergyFindings = [...computeEnergyImpacts(dayRecords), ...computePeriodEnergyImpacts(periodRecords)]
+  const dedupedEnergyFindings = deduplicateByLabel(allEnergyFindings, (f) => f.inputLabel, moodScore)
+  const energyBoosts = dedupedEnergyFindings.filter((f) => f.diff > 0).sort((a, b) => moodScore(b) - moodScore(a)).slice(0, 4)
+  const energyDrags = dedupedEnergyFindings.filter((f) => f.diff < 0).sort((a, b) => moodScore(b) - moodScore(a)).slice(0, 4)
+
   const allCorrelations = [...computeCorrelations(dayRecords), ...computePeriodCorrelations(periodRecords)]
   const dedupedCorrelations = deduplicateByLabel(allCorrelations, (f) => `${f.inputLabel}:${f.outcomeLabel}`, correlationScore)
   const positiveCorrelations = dedupedCorrelations.filter((f) => f.beneficial).sort((a, b) => correlationScore(b) - correlationScore(a)).slice(0, 4)
@@ -144,6 +153,8 @@ export async function getDashboardData(days: number, userId: string): Promise<Da
     dailyMood: buildDailyMoodSeries(dayRecords, days),
     boosts,
     drags,
+    energyBoosts,
+    energyDrags,
     positiveCorrelations,
     negativeCorrelations,
     checkInCount: checkIns.length,

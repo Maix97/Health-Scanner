@@ -1,5 +1,5 @@
 import { apiRequest } from './client'
-import type { CorrelationFinding, MoodFinding } from '../types'
+import type { CorrelationFinding, ScoreFinding } from '../types'
 
 export interface DailyMoodPoint {
   date: string
@@ -17,8 +17,10 @@ export interface PeriodStat {
 
 export interface DashboardData {
   dailyMood: DailyMoodPoint[]
-  boosts: MoodFinding[]
-  drags: MoodFinding[]
+  boosts: ScoreFinding[]
+  drags: ScoreFinding[]
+  energyBoosts: ScoreFinding[]
+  energyDrags: ScoreFinding[]
   positiveCorrelations: CorrelationFinding[]
   negativeCorrelations: CorrelationFinding[]
   checkInCount: number
