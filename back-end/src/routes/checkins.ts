@@ -23,6 +23,7 @@ const checkInBodySchema = z.object({
   wentToBedLate: z.boolean().nullable().optional(),
   sleptIn: z.boolean().nullable().optional(),
   sleepHours: z.number().min(0).max(24).nullable().optional(),
+  isWorkDay: z.boolean().nullable().optional(),
   moodScore: z.number().int().min(1).max(10).nullable().optional(),
   energyScore: z.number().int().min(1).max(10).nullable().optional(),
   journalText: z.string().max(5000).nullable().optional(),

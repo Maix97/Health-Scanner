@@ -14,6 +14,7 @@ export interface DayRecord {
   sleepScore: number | null
   sleepHours: number | null
   wentToBedLate: boolean | null
+  isWorkDay: boolean | null
   moodScores: number[]
   energyScores: number[]
 }
@@ -39,7 +40,7 @@ export function buildDayRecords(checkIns: CheckInWithRelations[]): DayRecord[] {
     const key = dayKey(checkIn.occurredAt)
     let record = byDay.get(key)
     if (!record) {
-      record = { date: key, inputLabels: new Set(), outcomeLabels: new Set(), positiveOutcomeLabels: new Set(), sleepScore: null, sleepHours: null, wentToBedLate: null, moodScores: [], energyScores: [] }
+      record = { date: key, inputLabels: new Set(), outcomeLabels: new Set(), positiveOutcomeLabels: new Set(), sleepScore: null, sleepHours: null, wentToBedLate: null, isWorkDay: null, moodScores: [], energyScores: [] }
       byDay.set(key, record)
     }
 
@@ -71,6 +72,14 @@ export function buildDayRecords(checkIns: CheckInWithRelations[]): DayRecord[] {
     }
     if (record.wentToBedLate === null && typeof checkIn.wentToBedLate === 'boolean') {
       record.wentToBedLate = checkIn.wentToBedLate
+    }
+    if (record.isWorkDay === null && typeof checkIn.isWorkDay === 'boolean') {
+      record.isWorkDay = checkIn.isWorkDay
+    }
+    // Surfaced as an input label too so it flows through the existing
+    // correlation/mood/energy engines the same way a "work day" tag would.
+    if (checkIn.isWorkDay === true) {
+      record.inputLabels.add('work day')
     }
 
     if (typeof checkIn.moodScore === 'number') {

@@ -78,6 +78,7 @@ export interface DailySleepData {
   wentToBedLate: boolean | null
   sleptIn: boolean | null
   sleepHours: number | null
+  isWorkDay: boolean | null
 }
 
 // Finds the sleep-only check-in (timePeriod=null) for the given date.
@@ -100,6 +101,7 @@ export function useDailySleep(dateStr: string) {
         wentToBedLate: sleepEntry.wentToBedLate,
         sleptIn: sleepEntry.sleptIn,
         sleepHours: sleepEntry.sleepHours,
+        isWorkDay: sleepEntry.isWorkDay,
       }
     },
   })

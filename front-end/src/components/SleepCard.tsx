@@ -16,6 +16,7 @@ export default function SleepCard({ date }: SleepCardProps) {
   const [sleepHours, setSleepHours] = useState('')
   const [wentToBedLate, setWentToBedLate] = useState(false)
   const [sleptIn, setSleptIn] = useState(false)
+  const [isWorkDay, setIsWorkDay] = useState(false)
   const [saved, setSaved] = useState(false)
   const [initialized, setInitialized] = useState(false)
 
@@ -25,6 +26,7 @@ export default function SleepCard({ date }: SleepCardProps) {
     setSleepHours('')
     setWentToBedLate(false)
     setSleptIn(false)
+    setIsWorkDay(false)
     setSaved(false)
     setInitialized(false)
   }, [date])
@@ -36,13 +38,14 @@ export default function SleepCard({ date }: SleepCardProps) {
       setSleepHours(existing.sleepHours != null ? String(existing.sleepHours) : '')
       setWentToBedLate(existing.wentToBedLate ?? false)
       setSleptIn(existing.sleptIn ?? false)
+      setIsWorkDay(existing.isWorkDay ?? false)
       setSaved(true)
     }
     setInitialized(true)
   }, [existing, isLoading, initialized])
 
   const isPending = createCheckIn.isPending || patchCheckIn.isPending
-  const hasAnyData = sleepScore != null || sleepHours.trim() !== '' || wentToBedLate || sleptIn
+  const hasAnyData = sleepScore != null || sleepHours.trim() !== '' || wentToBedLate || sleptIn || isWorkDay
 
   async function handleSave() {
     const [year, month, day] = date.split('-').map(Number)
@@ -54,6 +57,7 @@ export default function SleepCard({ date }: SleepCardProps) {
       sleepHours: parseSleepHours(sleepHours),
       wentToBedLate,
       sleptIn,
+      isWorkDay,
     }
     if (existing?.checkInId) {
       await patchCheckIn.mutateAsync({ id: existing.checkInId, input: payload })
@@ -102,6 +106,17 @@ export default function SleepCard({ date }: SleepCardProps) {
             onChange={(e) => { setSleepHours(e.target.value); setSaved(false) }}
             className="w-28 rounded-md border border-slate-300 bg-white px-2 py-1"
           />
+        </label>
+      </div>
+
+      <div className="mt-3 border-t border-violet-100 pt-3">
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={isWorkDay}
+            onChange={(e) => { setIsWorkDay(e.target.checked); setSaved(false) }}
+          />
+          Work day
         </label>
       </div>
 

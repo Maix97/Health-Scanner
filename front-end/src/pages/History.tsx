@@ -138,6 +138,11 @@ function CheckInRow({ checkIn }: { checkIn: CheckIn }) {
                     <dd className="inline">Slept in</dd>
                   </div>
                 )}
+                {checkIn.isWorkDay && (
+                  <div>
+                    <dd className="inline">Work day</dd>
+                  </div>
+                )}
               </dl>
               <div className="flex flex-wrap gap-1.5">
                 {checkIn.tags.map((t) => (

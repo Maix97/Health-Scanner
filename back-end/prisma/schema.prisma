@@ -54,6 +54,7 @@ model CheckIn {
   wentToBedLate      Boolean?
   sleptIn            Boolean?
   sleepHours         Float?
+  isWorkDay          Boolean?
   moodScore          Int?
   energyScore        Int?
   journalText        String?

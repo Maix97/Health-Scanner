@@ -41,6 +41,7 @@ export interface CheckIn {
   wentToBedLate: boolean | null
   sleptIn: boolean | null
   sleepHours: number | null
+  isWorkDay: boolean | null
   moodScore: number | null
   energyScore: number | null
   journalText: string | null
@@ -156,6 +157,7 @@ export interface CreateCheckInInput {
   wentToBedLate?: boolean | null
   sleptIn?: boolean | null
   sleepHours?: number | null
+  isWorkDay?: boolean | null
   moodScore?: number | null
   energyScore?: number | null
   journalText?: string | null

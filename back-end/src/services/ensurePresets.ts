@@ -9,7 +9,6 @@ const ADDED_PRESETS: { label: string; category: 'QUICK_TOGGLE' | 'FOOD' | 'EXERC
   { label: 'screen time low', category: 'QUICK_TOGGLE', hasIntensity: false },
   { label: 'screen time medium', category: 'QUICK_TOGGLE', hasIntensity: false },
   { label: 'screen time high', category: 'QUICK_TOGGLE', hasIntensity: false },
-  { label: 'work day', category: 'QUICK_TOGGLE', hasIntensity: false },
 ]
 
 // Tags that already exist but need hasIntensity corrected.
