@@ -52,6 +52,7 @@ model CheckIn {
   timePeriod         TimePeriod?
   sleepScore         Int?
   wentToBedLate      Boolean?
+  sleptIn            Boolean?
   sleepHours         Float?
   moodScore          Int?
   energyScore        Int?

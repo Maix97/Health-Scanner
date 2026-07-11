@@ -39,6 +39,7 @@ export interface CheckIn {
   timePeriod: TimePeriod | null
   sleepScore: number | null
   wentToBedLate: boolean | null
+  sleptIn: boolean | null
   sleepHours: number | null
   moodScore: number | null
   energyScore: number | null
@@ -153,6 +154,7 @@ export interface CreateCheckInInput {
   timePeriod?: TimePeriod | null
   sleepScore?: number | null
   wentToBedLate?: boolean | null
+  sleptIn?: boolean | null
   sleepHours?: number | null
   moodScore?: number | null
   energyScore?: number | null

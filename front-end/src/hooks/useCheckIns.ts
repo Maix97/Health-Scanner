@@ -76,6 +76,7 @@ export interface DailySleepData {
   checkInId: string
   sleepScore: number | null
   wentToBedLate: boolean | null
+  sleptIn: boolean | null
   sleepHours: number | null
 }
 
@@ -97,6 +98,7 @@ export function useDailySleep(dateStr: string) {
         checkInId: sleepEntry.id,
         sleepScore: sleepEntry.sleepScore,
         wentToBedLate: sleepEntry.wentToBedLate,
+        sleptIn: sleepEntry.sleptIn,
         sleepHours: sleepEntry.sleepHours,
       }
     },

@@ -15,6 +15,7 @@ export default function SleepCard({ date }: SleepCardProps) {
   const [sleepScore, setSleepScore] = useState<number | null>(null)
   const [sleepHours, setSleepHours] = useState('')
   const [wentToBedLate, setWentToBedLate] = useState(false)
+  const [sleptIn, setSleptIn] = useState(false)
   const [saved, setSaved] = useState(false)
   const [initialized, setInitialized] = useState(false)
 
@@ -23,6 +24,7 @@ export default function SleepCard({ date }: SleepCardProps) {
     setSleepScore(null)
     setSleepHours('')
     setWentToBedLate(false)
+    setSleptIn(false)
     setSaved(false)
     setInitialized(false)
   }, [date])
@@ -33,13 +35,14 @@ export default function SleepCard({ date }: SleepCardProps) {
       setSleepScore(existing.sleepScore)
       setSleepHours(existing.sleepHours != null ? String(existing.sleepHours) : '')
       setWentToBedLate(existing.wentToBedLate ?? false)
+      setSleptIn(existing.sleptIn ?? false)
       setSaved(true)
     }
     setInitialized(true)
   }, [existing, isLoading, initialized])
 
   const isPending = createCheckIn.isPending || patchCheckIn.isPending
-  const hasAnyData = sleepScore != null || sleepHours.trim() !== '' || wentToBedLate
+  const hasAnyData = sleepScore != null || sleepHours.trim() !== '' || wentToBedLate || sleptIn
 
   async function handleSave() {
     const [year, month, day] = date.split('-').map(Number)
@@ -50,6 +53,7 @@ export default function SleepCard({ date }: SleepCardProps) {
       sleepScore,
       sleepHours: parseSleepHours(sleepHours),
       wentToBedLate,
+      sleptIn,
     }
     if (existing?.checkInId) {
       await patchCheckIn.mutateAsync({ id: existing.checkInId, input: payload })
@@ -79,6 +83,14 @@ export default function SleepCard({ date }: SleepCardProps) {
             onChange={(e) => { setWentToBedLate(e.target.checked); setSaved(false) }}
           />
           Went to bed late
+        </label>
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={sleptIn}
+            onChange={(e) => { setSleptIn(e.target.checked); setSaved(false) }}
+          />
+          Slept in
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-600">
           Hours slept

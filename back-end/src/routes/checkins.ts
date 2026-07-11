@@ -21,6 +21,7 @@ const checkInBodySchema = z.object({
   timePeriod: z.enum(['MORNING', 'DAY', 'EVENING', 'WHOLE_DAY']).nullable().optional(),
   sleepScore: z.number().int().min(1).max(10).nullable().optional(),
   wentToBedLate: z.boolean().nullable().optional(),
+  sleptIn: z.boolean().nullable().optional(),
   sleepHours: z.number().min(0).max(24).nullable().optional(),
   moodScore: z.number().int().min(1).max(10).nullable().optional(),
   energyScore: z.number().int().min(1).max(10).nullable().optional(),
