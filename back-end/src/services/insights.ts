@@ -20,6 +20,7 @@ import {
   computeWentToBedLateImpacts,
   computeWentToBedLateScoreImpacts,
 } from './sleep.js'
+import { computeOrdinalFactorImpacts } from './ordinalFactors.js'
 import { INSIGHT_TOOL_NAME, insightResultSchema, insightToolSchema } from '../schemas/insights.js'
 
 const LOOKBACK_DAYS = 90
@@ -92,6 +93,7 @@ export async function generateInsights(opts: { force?: boolean; userId: string }
   const wentToBedLateCorrelations = computeWentToBedLateImpacts(days)
   const wentToBedLateScoreImpacts = computeWentToBedLateScoreImpacts(days)
   const exposureSleepImpacts = computeExposureSleepImpacts(days)
+  const ordinalImpacts = computeOrdinalFactorImpacts(days)
 
   const createdCorrelationInsights = [
     ...(await cacheFindings(findings, 'correlation', (f) => `${f.inputLabel}:${f.outcomeLabel}`, since, checkInCount, userId)),
@@ -126,6 +128,7 @@ export async function generateInsights(opts: { force?: boolean; userId: string }
     ...(await cacheFindings(wentToBedLateCorrelations, 'sleep-late-corr', (f) => f.outcomeLabel, since, checkInCount, userId)),
     ...(await cacheFindings(wentToBedLateScoreImpacts, 'sleep-late-score', (f) => f.metric, since, checkInCount, userId)),
     ...(await cacheFindings(exposureSleepImpacts, 'sleep-exposure', (f) => f.inputLabel, since, checkInCount, userId)),
+    ...(await cacheFindings(ordinalImpacts, 'ordinal', (f) => `${f.inputLabel}:${f.metric}`, since, checkInCount, userId)),
   ]
 
   const lastSummary = await prisma.insight.findFirst({
@@ -160,6 +163,7 @@ export async function generateInsights(opts: { force?: boolean; userId: string }
     ...wentToBedLateCorrelations.map((f) => f.summary),
     ...wentToBedLateScoreImpacts.map((f) => f.summary),
     ...exposureSleepImpacts.map((f) => f.summary),
+    ...ordinalImpacts.map((f) => f.summary),
   ]
 
   if (allFindingSummaries.length === 0) {
@@ -295,6 +299,7 @@ export async function getPatterns(userId: string) {
     correlations: deduplicateFindings(allCorrelations, (f) => `${f.inputLabel}:${f.outcomeLabel}`, (f) => Math.abs(f.lift) * Math.sqrt(Math.min(f.daysWithInput, f.daysWithoutInput))),
     moodImpacts: deduplicateFindings(allMoodImpacts, (f) => f.inputLabel, scoreScore),
     energyImpacts: deduplicateFindings(allEnergyImpacts, (f) => f.inputLabel, scoreScore),
+    ordinalImpacts: computeOrdinalFactorImpacts(days),
     checkInCount: checkIns.length,
     sleep: {
       qualityVsOutcomes: computeSleepQualityVsOutcomes(days),

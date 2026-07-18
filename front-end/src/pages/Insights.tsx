@@ -17,6 +17,7 @@ const EMOJI_RULES: [RegExp, string][] = [
   [/meat|chicken|beef|pork|steak|minced/, '🥩'],
   [/fruit|apple|banana|berry|orange/, '🍎'],
   [/water|hydrat/, '💧'],
+  [/screen.?time/, '📱'],
   [/stress/, '😰'],
   [/meditation|yoga|mindful/, '🧘'],
   [/dairy|milk|cheese/, '🥛'],
@@ -629,7 +630,7 @@ export default function Insights() {
     }
   }
 
-  const groups = buildGroups(patterns?.correlations ?? [], [...(patterns?.moodImpacts ?? []), ...(patterns?.energyImpacts ?? [])])
+  const groups = buildGroups(patterns?.correlations ?? [], [...(patterns?.moodImpacts ?? []), ...(patterns?.energyImpacts ?? []), ...(patterns?.ordinalImpacts ?? [])])
   const helpingGroups = groups.filter((g) => !g.allConfounded && g.column === 'helping')
   const hurtingGroups = groups.filter((g) => !g.allConfounded && g.column === 'hurting')
   const confoundedGroups = groups.filter((g) => g.allConfounded)

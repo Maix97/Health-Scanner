@@ -5,6 +5,7 @@ export interface PatternsData {
   correlations: CorrelationFinding[]
   moodImpacts: ScoreFinding[]
   energyImpacts: ScoreFinding[]
+  ordinalImpacts: ScoreFinding[]
   checkInCount: number
   sleep: SleepPatterns
 }

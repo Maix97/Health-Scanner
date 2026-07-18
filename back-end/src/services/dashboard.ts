@@ -10,6 +10,7 @@ import {
   type CorrelationFinding,
   type ScoreFinding,
 } from './correlation.js'
+import { computeOrdinalFactorImpacts } from './ordinalFactors.js'
 
 export interface DailyMoodPoint {
   date: string
@@ -134,12 +135,14 @@ export async function getDashboardData(days: number, userId: string): Promise<Da
   const dayRecords = buildDayRecords(checkIns)
   const periodRecords = buildPeriodRecords(checkIns)
 
-  const allMoodFindings = [...computeMoodImpacts(dayRecords), ...computePeriodMoodImpacts(periodRecords)]
+  const ordinalImpacts = computeOrdinalFactorImpacts(dayRecords)
+
+  const allMoodFindings = [...computeMoodImpacts(dayRecords), ...computePeriodMoodImpacts(periodRecords), ...ordinalImpacts.filter((f) => f.metric === 'mood')]
   const dedupedMoodFindings = deduplicateByLabel(allMoodFindings, (f) => f.inputLabel, moodScore)
   const boosts = dedupedMoodFindings.filter((f) => f.diff > 0).sort((a, b) => moodScore(b) - moodScore(a)).slice(0, 4)
   const drags = dedupedMoodFindings.filter((f) => f.diff < 0).sort((a, b) => moodScore(b) - moodScore(a)).slice(0, 4)
 
-  const allEnergyFindings = [...computeEnergyImpacts(dayRecords), ...computePeriodEnergyImpacts(periodRecords)]
+  const allEnergyFindings = [...computeEnergyImpacts(dayRecords), ...computePeriodEnergyImpacts(periodRecords), ...ordinalImpacts.filter((f) => f.metric === 'energy')]
   const dedupedEnergyFindings = deduplicateByLabel(allEnergyFindings, (f) => f.inputLabel, moodScore)
   const energyBoosts = dedupedEnergyFindings.filter((f) => f.diff > 0).sort((a, b) => moodScore(b) - moodScore(a)).slice(0, 4)
   const energyDrags = dedupedEnergyFindings.filter((f) => f.diff < 0).sort((a, b) => moodScore(b) - moodScore(a)).slice(0, 4)

@@ -1,4 +1,5 @@
 import type { Prisma, TagCategory } from '@prisma/client'
+import { matchOrdinalLevel } from './ordinalFactors.js'
 
 export type CheckInWithRelations = Prisma.CheckInGetPayload<{
   include: { tags: { include: { tag: true } }; events: true }
@@ -15,6 +16,8 @@ export interface DayRecord {
   sleepHours: number | null
   wentToBedLate: boolean | null
   isWorkDay: boolean | null
+  // Per ordinal factor name (e.g. "Hydration") → numeric level(s) reported that day.
+  ordinalScores: Record<string, number[]>
   moodScores: number[]
   energyScores: number[]
 }
@@ -40,15 +43,28 @@ export function buildDayRecords(checkIns: CheckInWithRelations[]): DayRecord[] {
     const key = dayKey(checkIn.occurredAt)
     let record = byDay.get(key)
     if (!record) {
-      record = { date: key, inputLabels: new Set(), outcomeLabels: new Set(), positiveOutcomeLabels: new Set(), sleepScore: null, sleepHours: null, wentToBedLate: null, isWorkDay: null, moodScores: [], energyScores: [] }
+      record = { date: key, inputLabels: new Set(), outcomeLabels: new Set(), positiveOutcomeLabels: new Set(), sleepScore: null, sleepHours: null, wentToBedLate: null, isWorkDay: null, ordinalScores: {}, moodScores: [], energyScores: [] }
       byDay.set(key, record)
     }
 
     for (const t of checkIn.tags) {
+      const label = t.tag.label.toLowerCase()
+
+      // Multi-level toggles (hydration, screen time): pool the numeric level
+      // for ordinal analysis and only feed the worst level into the ordinary
+      // binary exposure pool — otherwise each level fragments into its own
+      // unrelated finding.
+      const ordinal = matchOrdinalLevel(label)
+      if (ordinal) {
+        const scores = record.ordinalScores[ordinal.factor.name] ?? (record.ordinalScores[ordinal.factor.name] = [])
+        scores.push(ordinal.value)
+        if (ordinal.isWorst) record.inputLabels.add(label)
+        continue
+      }
+
       if (INPUT_TAG_CATEGORIES.includes(t.tag.category)) {
-        record.inputLabels.add(t.tag.label.toLowerCase())
+        record.inputLabels.add(label)
       } else {
-        const label = t.tag.label.toLowerCase()
         record.outcomeLabels.add(label)
         if (t.tag.polarity === 'POSITIVE') record.positiveOutcomeLabels.add(label)
       }
@@ -152,10 +168,19 @@ export function buildPeriodRecords(checkIns: CheckInWithRelations[]): PeriodReco
     }
 
     for (const t of checkIn.tags) {
+      const label = t.tag.label.toLowerCase()
+
+      // Same ordinal collapse as buildDayRecords — only the worst level
+      // joins the binary exposure pool for time-of-day carryover analysis.
+      const ordinal = matchOrdinalLevel(label)
+      if (ordinal) {
+        if (ordinal.isWorst) record.inputLabels.add(label)
+        continue
+      }
+
       if (INPUT_TAG_CATEGORIES.includes(t.tag.category)) {
-        record.inputLabels.add(t.tag.label.toLowerCase())
+        record.inputLabels.add(label)
       } else {
-        const label = t.tag.label.toLowerCase()
         record.outcomeLabels.add(label)
         if (t.tag.polarity === 'POSITIVE') record.positiveOutcomeLabels.add(label)
       }
