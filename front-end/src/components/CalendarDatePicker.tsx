@@ -24,7 +24,9 @@ export default function CalendarDatePicker({ value, onChange }: CalendarDatePick
     setView((prev) => (prev.year === parsed.year && prev.monthIndex === parsed.monthIndex ? prev : parsed))
   }, [value])
 
-  const { data: datesWithEntries = new Set<string>() } = useCheckInDatesInMonth(viewYear, viewMonth)
+  const { data } = useCheckInDatesInMonth(viewYear, viewMonth)
+  const datesWithEntries = data?.datesWithEntries ?? new Set<string>()
+  const workDayDates = data?.workDayDates ?? new Set<string>()
 
   const today = todayDateString()
   const firstOfMonth = new Date(viewYear, viewMonth, 1)
@@ -80,6 +82,7 @@ export default function CalendarDatePicker({ value, onChange }: CalendarDatePick
           const isToday = dateStr === today
           const isFuture = dateStr > today
           const hasEntry = datesWithEntries.has(dateStr)
+          const isWorkDay = workDayDates.has(dateStr)
 
           return (
             <button
@@ -96,6 +99,14 @@ export default function CalendarDatePicker({ value, onChange }: CalendarDatePick
               } ${isToday && !isSelected ? 'ring-1 ring-inset ring-slate-400' : ''}`}
             >
               {day}
+              {isWorkDay && (
+                <span
+                  className={`absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full ${
+                    isSelected ? 'bg-orange-300' : 'bg-orange-500'
+                  }`}
+                  title="Work day"
+                />
+              )}
               {hasEntry && (
                 <span
                   className={`absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${

@@ -25,14 +25,29 @@ export function useCheckInsForDate(dateStr: string, excludeCheckInId?: string) {
   })
 }
 
-// Set of YYYY-MM-DD dates within the given month that have at least one
-// check-in, for marking days on the calendar picker. monthIndex is 0-based.
+export interface MonthCheckInMarkers {
+  datesWithEntries: Set<string>
+  workDayDates: Set<string>
+}
+
+// Dates within the given month that have at least one check-in, and dates
+// flagged as a work day, for marking days on the calendar picker.
+// monthIndex is 0-based.
 export function useCheckInDatesInMonth(year: number, monthIndex: number) {
   const { from, to } = monthBounds(year, monthIndex)
   return useQuery({
     queryKey: ['checkins', 'month', `${year}-${monthIndex}`],
     queryFn: () => fetchCheckIns({ from, to, limit: 200 }),
-    select: (checkIns) => new Set(checkIns.map((c) => toDateInputValue(new Date(c.occurredAt)))),
+    select: (checkIns): MonthCheckInMarkers => {
+      const datesWithEntries = new Set<string>()
+      const workDayDates = new Set<string>()
+      for (const c of checkIns) {
+        const date = toDateInputValue(new Date(c.occurredAt))
+        datesWithEntries.add(date)
+        if (c.isWorkDay) workDayDates.add(date)
+      }
+      return { datesWithEntries, workDayDates }
+    },
   })
 }
 
