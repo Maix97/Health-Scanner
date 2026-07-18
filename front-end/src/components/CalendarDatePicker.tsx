@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useCheckInDatesInMonth } from '../hooks/useCheckIns'
 import { toDateInputValue, todayDateString } from '../lib/time'
 
-const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+const WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 interface CalendarDatePickerProps {
   value: string
@@ -28,7 +28,9 @@ export default function CalendarDatePicker({ value, onChange }: CalendarDatePick
 
   const today = todayDateString()
   const firstOfMonth = new Date(viewYear, viewMonth, 1)
-  const startWeekday = firstOfMonth.getDay()
+  // getDay() is 0=Sunday..6=Saturday; shift so Monday=0..Sunday=6 for a
+  // European-style week that starts on Monday.
+  const startWeekday = (firstOfMonth.getDay() + 6) % 7
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
   const cells: (number | null)[] = [
     ...Array(startWeekday).fill(null),
