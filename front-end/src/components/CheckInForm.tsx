@@ -95,8 +95,7 @@ function TrackerRow({
 }
 
 const HYDRATION_LEVELS: TrackerLevel[] = [
-  { label: 'hydration low', display: 'Low', active: 'border-rose-300 bg-rose-50 text-rose-700' },
-  { label: 'hydration ok', display: 'OK', active: 'border-amber-300 bg-amber-50 text-amber-700' },
+  { label: 'hydration bad', display: 'Bad', active: 'border-rose-300 bg-rose-50 text-rose-700' },
   { label: 'hydration good', display: 'Good', active: 'border-sky-300 bg-sky-50 text-sky-700' },
 ]
 

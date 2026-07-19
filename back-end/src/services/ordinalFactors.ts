@@ -19,7 +19,7 @@ export interface OrdinalFactor {
 }
 
 export const ORDINAL_FACTORS: OrdinalFactor[] = [
-  { name: 'Hydration', emoji: '💧', tagPrefix: 'hydration ', levels: ['low', 'ok', 'good'], badDirection: 'low' },
+  { name: 'Hydration', emoji: '💧', tagPrefix: 'hydration ', levels: ['bad', 'good'], badDirection: 'low' },
   { name: 'Screen time', emoji: '📱', tagPrefix: 'screen time ', levels: ['low', 'medium', 'high'], badDirection: 'high' },
 ]
 
